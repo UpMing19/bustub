@@ -1,6 +1,10 @@
 #include "primer/trie.h"
+#include <cstddef>
+#include <memory>
 #include <string_view>
+#include <utility>
 #include "common/exception.h"
+#include "execution/executors/topn_executor.h"
 
 namespace bustub {
 
@@ -12,6 +16,21 @@ auto Trie::Get(std::string_view key) const -> const T * {
   // nullptr. After you find the node, you should use `dynamic_cast` to cast it to `const TrieNodeWithValue<T> *`. If
   // dynamic_cast returns `nullptr`, it means the type of the value is mismatched, and you should return nullptr.
   // Otherwise, return the value.
+  std::shared_ptr<const TrieNode> now = root_;
+  for (auto c : key) {
+    auto it = now->children_.find(c);
+    std::shared_ptr<const TrieNode> temp = it->second;
+    if (it == now->children_.end()) {
+      return nullptr;
+    }
+    now = temp;
+  }
+  //auto valuenode = dynamic_cast<const TrieNodeWithValue<T>*>(now);
+  auto value_node = std::dynamic_pointer_cast<const TrieNodeWithValue<T>>(now);
+  if (value_node == nullptr) {
+    return nullptr;
+  }
+  return value_node->value_.get();
 }
 
 template <class T>
@@ -21,6 +40,8 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
   // exists, you should create a new `TrieNodeWithValue`.
+
+
 }
 
 auto Trie::Remove(std::string_view key) const -> Trie {
