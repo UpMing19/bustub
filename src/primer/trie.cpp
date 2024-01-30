@@ -45,29 +45,34 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
   // exists, you should create a new `TrieNodeWithValue`.
   Trie t;
-
+  std::shared_ptr<TrieNode> now;
   if (root_ == nullptr) {
-    std::shared_ptr<TrieNode> new_root = std::make_shared<TrieNode>();
+    auto new_root = std::shared_ptr<TrieNode>();
     t.root_ = new_root;
-  }
+    now = new_root;
+  } else {
+    auto un = root_->Clone();
+    auto new_root = std::shared_ptr<TrieNode>(std::move(un));
 
-  auto now = t.root_->Clone();
+    t.root_ = new_root;
+    now = new_root;
+  }
 
   for (char c : key) {
     if (now->children_.find(c) == now->children_.end()) {
       std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>();
       now->children_[c] = temp;
-      now = temp->Clone();
+      now = temp;
     } else {
       now = now->children_[c]->Clone();
     }
   }
 
-  std::shared_ptr<TrieNodeWithValue<T>> now2 = std::make_shared<TrieNodeWithValue<T>>(std::move(now));
-  std::shared_ptr<TrieNodeWithValue<T>> value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now2);
+  // std::shared_ptr<TrieNode> now2 = std::make_shared<TrieNode>(std::move(now));
+  std::shared_ptr<TrieNodeWithValue<T>> value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now);
   std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
   value_node->value_ = std::move(v);
-
+  value_node->is_value_node_ = true;
   return t;
 }
 
@@ -76,6 +81,22 @@ auto Trie::Remove(std::string_view key) const -> Trie {
 
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
+  //
+  // Trie t;
+  // t.root_ = root_;
+  // if (t.root_ == nullptr) {
+  //   return t;
+  // }
+
+  // auto now = t.root_->Clone();
+
+  // for (auto c : key) {
+  //   if (now->children_.find(c) == now->children_.end()) {
+  //   } else {
+  //     now = now->children_[c]->Clone();
+  //   }
+  // }
+  // return t;
 }
 
 // Below are explicit instantiation of template functions.
