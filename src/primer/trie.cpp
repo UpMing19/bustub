@@ -67,8 +67,8 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
       }
     } else {
       if (now->children_.find(c) == now->children_.end()) {
-        std::shared_ptr<T> v = std::make_shared<T>(value);
-        std::shared_ptr<const TrieNode> temp = std::make_shared<const TrieNodeWithValue<T>>(v);
+        std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
+        std::shared_ptr<const TrieNode> temp = std::make_shared<const TrieNodeWithValue<T>>(std::move(v));
         now->children_[c] = temp;
         now = temp->Clone();
       } else {
