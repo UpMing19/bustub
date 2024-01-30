@@ -40,24 +40,6 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
   // exists, you should create a new `TrieNodeWithValue`.
-
-  std::shared_ptr<TrieNode> now = std::make_shared<TrieNode>(root_);
-  for (auto c : key) {
-    auto it = now->children_.find(c);
-    if (it == now->children_.end()) {
-      std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>();
-      now->children_.insert(std::make_pair(c, temp));
-      now = temp;
-    } else {
-      std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>(it->second);
-      now = temp;
-    }
-  }
-
-  std::shared_ptr<TrieNodeWithValue<T>> value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now);
-  value_node->is_value_node_ = true;
-  value_node->value_ = std::make_shared<T>(std::move(value));
-  return *this;
 }
 
 auto Trie::Remove(std::string_view key) const -> Trie {
