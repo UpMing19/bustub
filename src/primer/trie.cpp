@@ -53,29 +53,21 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 
   auto now = t.root_->Clone();
 
-  size_t sz = key.size();
-  size_t num = 0;
   for (char c : key) {
-    num++;
-    if (num != sz) {
-      if (now->children_.find(c) == now->children_.end()) {
-        std::shared_ptr<const TrieNode> temp = std::make_shared<const TrieNode>();
-        now->children_[c] = temp;
-        now = temp->Clone();
-      } else {
-        now = now->children_[c]->Clone();
-      }
+    if (now->children_.find(c) == now->children_.end()) {
+      std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>();
+      now->children_[c] = temp;
+      now = temp->Clone();
     } else {
-      if (now->children_.find(c) == now->children_.end()) {
-        std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
-        std::shared_ptr<const TrieNode> temp = std::make_shared<const TrieNodeWithValue<T>>(std::move(v));
-        now->children_[c] = temp;
-        now = temp->Clone();
-      } else {
-        now = now->children_[c]->Clone();
-      }
+      now = now->children_[c]->Clone();
     }
   }
+
+  std::shared_ptr<TrieNodeWithValue<T>> now2 = std::make_shared<TrieNodeWithValue<T>>(std::move(now));
+  std::shared_ptr<TrieNodeWithValue<T>> value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now2);
+  std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
+  value_node->value_ = std::move(v);
+
   return t;
 }
 
