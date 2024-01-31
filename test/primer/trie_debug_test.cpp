@@ -40,7 +40,20 @@ TEST(TrieDebugger, TestCase) {
     trie = trie.Put<uint32_t>(key, value);
   }
 
+
+
   // Put a breakpoint here.
+
+  trie = trie.Put<uint32_t>("65", 25);
+  trie = trie.Put<uint32_t>("61", 65);
+  trie = trie.Put<uint32_t>("82", 84);
+  trie = trie.Put<uint32_t>("2", 42);
+  trie = trie.Put<uint32_t>("16", 67);
+  trie = trie.Put<uint32_t>("94", 53);
+  trie = trie.Put<uint32_t>("20", 35);
+  trie = trie.Put<uint32_t>("3", 57);
+  trie = trie.Put<uint32_t>("969", 30);
+  trie = trie.Put<uint32_t>("75", 29);
 
   // (1) How many children nodes are there on the root?
   // Replace `CASE_1_YOUR_ANSWER` in `trie_answer.h` with the correct answer.
