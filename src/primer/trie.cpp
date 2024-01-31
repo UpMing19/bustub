@@ -64,7 +64,10 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
       now->children_[c] = temp;
       now = temp;
     } else {
-      now = now->children_[c]->Clone();
+      auto tempp = now->children_[c]->Clone();
+      std::shared_ptr<TrieNode> temp = std::shared_ptr<TrieNode>(std::move(tempp));
+      now->children_[c] = temp;
+      now = temp;
     }
   }
 
@@ -81,22 +84,31 @@ auto Trie::Remove(std::string_view key) const -> Trie {
 
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
-  //
-  // Trie t;
-  // t.root_ = root_;
-  // if (t.root_ == nullptr) {
-  //   return t;
-  // }
+  Trie t;
+  std::shared_ptr<TrieNode> new_root = std::make_shared<TrieNode>();
+  if (root_ != nullptr) {
+    auto un = root_->Clone();
+    new_root = std::shared_ptr<TrieNode>(std::move(un));
+    t.root_ = new_root;
+  } else {
+    t.root_ = new_root;
+  }
+  std::shared_ptr<TrieNode> now = new_root;
+  auto pa = now;
+  for (auto c : key) {
+    if (now->children_.find(c) == now->children_.end()) {
+      return t;
+    }
+    auto node = now->children_.at(c)->Clone();
+    auto node2 = std::shared_ptr<TrieNode>(std::move(node));
 
-  // auto now = t.root_->Clone();
-
-  // for (auto c : key) {
-  //   if (now->children_.find(c) == now->children_.end()) {
-  //   } else {
-  //     now = now->children_[c]->Clone();
-  //   }
-  // }
-  // return t;
+    pa = now;
+    now = node2;
+  }
+  if (now->is_value_node_ && now->children_.empty()) {
+    pa->children_.erase(key.back());
+  }
+  return t;
 }
 
 // Below are explicit instantiation of template functions.
