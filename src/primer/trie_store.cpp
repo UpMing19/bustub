@@ -25,7 +25,7 @@ auto TrieStore::Get(std::string_view key) -> std::optional<ValueGuard<T>> {
     root_lock_.unlock();
     return std::nullopt;
   }
-  auto node = std::make_shared<ValueGuard<T>>(root_, val);
+  auto node = std::make_shared<ValueGuard<T>>(root_, *val);
   std::optional<ValueGuard<T>> res = *node;
   root_lock_.unlock();
   return res;
