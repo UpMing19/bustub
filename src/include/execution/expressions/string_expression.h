@@ -53,14 +53,18 @@ class StringExpression : public AbstractExpression {
         if (c >= 'a' && c <= 'z') {
           continue;
         }
-        c = c - 'A' + 'a';
+        if (c >= 'A' && c <= 'Z') {
+          c = c - 'A' + 'a';
+        }
       }
-    } else {
+    } else if (expr_type_ == StringExpressionType::Upper) {
       for (auto &c : ans) {
         if (c >= 'A' && c <= 'Z') {
           continue;
         }
-        c = c - 'a' + 'A';
+        if (c >= 'a' && c <= 'z') {
+          c = c - 'a' + 'A';
+        }
       }
     }
 

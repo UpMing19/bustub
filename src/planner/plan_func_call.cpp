@@ -37,7 +37,8 @@ auto Planner::GetFuncCallFromFactory(const std::string &func_name, std::vector<A
     throw Exception(fmt::format("func call {} not supported ,args number not 1)", func_name));
   }
 
-  std::shared_ptr<StringExpression> res = std::make_shared<StringExpression>(args[0],func_name=="lower"?StringExpressionType::Lower:StringExpressionType::Upper);
+  std::shared_ptr<StringExpression> res = std::make_shared<StringExpression>(
+      args[0], func_name == "lower" ? StringExpressionType::Lower : StringExpressionType::Upper);
   return res;
 }
 

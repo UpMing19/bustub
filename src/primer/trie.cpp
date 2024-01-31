@@ -26,8 +26,7 @@ auto Trie::Get(std::string_view key) const -> const T * {
     if (it == now->children_.end()) {
       return nullptr;
     }
-    std::shared_ptr<const TrieNode> temp = it->second;
-    now = temp;
+    now = now->children_.at(c);
   }
   // auto valuenode = dynamic_cast<const TrieNodeWithValue<T>*>(now);
   auto value_node = std::dynamic_pointer_cast<const TrieNodeWithValue<T>>(now);
@@ -80,7 +79,7 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
 }
 
 auto Trie::Remove(std::string_view key) const -> Trie {
-  throw NotImplementedException("Trie::Remove is not implemented.");
+  // throw NotImplementedException("Trie::Remove is not implemented.");
 
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.

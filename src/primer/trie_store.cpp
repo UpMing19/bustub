@@ -47,7 +47,7 @@ void TrieStore::Put(std::string_view key, T value) {
 void TrieStore::Remove(std::string_view key) {
   // You will need to ensure there is only one writer at a time. Think of how you can achieve this.
   // The logic should be somehow similar to `TrieStore::Get`.
-  //throw NotImplementedException("TrieStore::Remove is not implemented.");
+  // throw NotImplementedException("TrieStore::Remove is not implemented.");
 
   write_lock_.lock();
   const Trie t = root_.Remove(key);
