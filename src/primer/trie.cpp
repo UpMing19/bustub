@@ -7,6 +7,8 @@
 #include "common/exception.h"
 #include "execution/executors/topn_executor.h"
 
+#define debug(x) std::cout << #x << ":" << '\n';
+
 namespace bustub {
 
 template <class T>
@@ -44,11 +46,14 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
   // You should walk through the trie and create new nodes if necessary. If the node corresponding to the key already
   // exists, you should create a new `TrieNodeWithValue`.
   Trie t;
-  std::shared_ptr<TrieNode> now;
+  std::shared_ptr<TrieNode> now = std::make_shared<TrieNode>();
+  std::shared_ptr<TrieNode> pa = std::make_shared<TrieNode>();
+
   if (root_ == nullptr) {
-    auto new_root = std::shared_ptr<TrieNode>();
-    t.root_ = new_root;
+    std::shared_ptr<TrieNode> new_root = std::make_shared<TrieNode>();
     now = new_root;
+    t.root_ = new_root;
+
   } else {
     auto un = root_->Clone();
     auto new_root = std::shared_ptr<TrieNode>(std::move(un));
@@ -57,24 +62,38 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
     now = new_root;
   }
 
+  std::cout << " root:" << &root_ << '\n';
+
   for (char c : key) {
+    std::cout << " put char:" << c << '\n';
+    if (now == nullptr) {
+      std::cout << " now = nullput    ---   put char:" << c << '\n';
+    }
     if (now->children_.find(c) == now->children_.end()) {
       std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>();
       now->children_[c] = temp;
+      pa = now;
       now = temp;
     } else {
       auto tempp = now->children_[c]->Clone();
       std::shared_ptr<TrieNode> temp = std::shared_ptr<TrieNode>(std::move(tempp));
       now->children_[c] = temp;
+      pa = now;
       now = temp;
     }
+    std::cout << "222 put char:" << c << '\n';
   }
 
   // std::shared_ptr<TrieNode> now2 = std::make_shared<TrieNode>(std::move(now));
-  std::shared_ptr<TrieNodeWithValue<T>> value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now);
   std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
-  value_node->value_ = std::move(v);
-  value_node->is_value_node_ = true;
+  std::cout << "111finish:" << '\n';
+  std::shared_ptr<TrieNode> value_node = std::make_shared<TrieNodeWithValue<T>>(now->children_, std::move(v));
+  std::cout << "2222finish:" << '\n';
+  value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now);
+  std::cout << "333finish:" << '\n';
+  if (!key.empty()) {
+    pa->children_[key.back()] = value_node;
+  }
   return t;
 }
 
@@ -114,8 +133,8 @@ auto Trie::Remove(std::string_view key) const -> Trie {
 //
 // Generally people would write the implementation of template classes and functions in the header file. However, we
 // separate the implementation into a .cpp file to make things clearer. In order to make the compiler know the
-// implementation of the template functions, we need to explicitly instantiate them here, so that they can be picked up
-// by the linker.
+// implementation of the template functions, we need to explicitly instantiate them here, so that they can be picked
+// up by the linker.
 
 template auto Trie::Put(std::string_view key, uint32_t value) const -> Trie;
 template auto Trie::Get(std::string_view key) const -> const uint32_t *;
