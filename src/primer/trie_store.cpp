@@ -1,6 +1,5 @@
 #include "primer/trie_store.h"
 #include <pthread.h>
-#include <__threading_support>
 #include <memory>
 #include <mutex>
 #include <optional>
