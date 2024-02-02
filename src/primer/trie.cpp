@@ -7,7 +7,7 @@
 #include "common/exception.h"
 #include "execution/executors/topn_executor.h"
 
-#define debug(x) std::cout << #x << ":" << '\n';
+#define debug(x) std::cout << #x << ":" << x << '\n';
 
 namespace bustub {
 
@@ -22,7 +22,8 @@ auto Trie::Get(std::string_view key) const -> const T * {
   if (root_ == nullptr) {
     return nullptr;
   }
-  std::shared_ptr<const TrieNode> now = root_;
+  std::shared_ptr<const TrieNode> now = std::make_shared<const TrieNode>();
+  now = root_;
   for (auto c : key) {
     auto it = now->children_.find(c);
     if (it == now->children_.end()) {
@@ -30,9 +31,9 @@ auto Trie::Get(std::string_view key) const -> const T * {
     }
     now = now->children_.at(c);
   }
-  // auto valuenode = dynamic_cast<const TrieNodeWithValue<T>*>(now);
-  auto value_node = std::dynamic_pointer_cast<const TrieNodeWithValue<T>>(now);
-  if (value_node == nullptr) {
+
+  auto value_node = dynamic_cast<const TrieNodeWithValue<T> *>(now.get());
+  if (value_node == nullptr || !value_node->is_value_node_) {
     return nullptr;
   }
   return value_node->value_.get();
@@ -62,13 +63,7 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
     now = new_root;
   }
 
-  std::cout << " root:" << &root_ << '\n';
-
   for (char c : key) {
-    std::cout << " put char:" << c << '\n';
-    if (now == nullptr) {
-      std::cout << " now = nullput    ---   put char:" << c << '\n';
-    }
     if (now->children_.find(c) == now->children_.end()) {
       std::shared_ptr<TrieNode> temp = std::make_shared<TrieNode>();
       now->children_[c] = temp;
@@ -81,18 +76,16 @@ auto Trie::Put(std::string_view key, T value) const -> Trie {
       pa = now;
       now = temp;
     }
-    std::cout << "222 put char:" << c << '\n';
   }
 
-  // std::shared_ptr<TrieNode> now2 = std::make_shared<TrieNode>(std::move(now));
-  std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
-  std::cout << "111finish:" << '\n';
-  std::shared_ptr<TrieNode> value_node = std::make_shared<TrieNodeWithValue<T>>(now->children_, std::move(v));
-  std::cout << "2222finish:" << '\n';
-  value_node = std::dynamic_pointer_cast<TrieNodeWithValue<T>>(now);
-  std::cout << "333finish:" << '\n';
   if (!key.empty()) {
+    std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
+    std::shared_ptr<TrieNode> value_node =
+        std::make_shared<TrieNodeWithValue<T>>(std::move(now->children_), std::move(v));
     pa->children_[key.back()] = value_node;
+  } else {
+    std::shared_ptr<T> v = std::make_shared<T>(std::move(value));
+    t.root_ = std::make_shared<TrieNodeWithValue<T>>(std::move(now->children_), std::move(v));
   }
   return t;
 }
@@ -103,29 +96,8 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
   Trie t;
-  std::shared_ptr<TrieNode> new_root = std::make_shared<TrieNode>();
-  if (root_ != nullptr) {
-    auto un = root_->Clone();
-    new_root = std::shared_ptr<TrieNode>(std::move(un));
-    t.root_ = new_root;
-  } else {
-    t.root_ = new_root;
-  }
-  std::shared_ptr<TrieNode> now = new_root;
-  auto pa = now;
-  for (auto c : key) {
-    if (now->children_.find(c) == now->children_.end()) {
-      return t;
-    }
-    auto node = now->children_.at(c)->Clone();
-    auto node2 = std::shared_ptr<TrieNode>(std::move(node));
-
-    pa = now;
-    now = node2;
-  }
-  if (now->is_value_node_ && now->children_.empty()) {
-    pa->children_.erase(key.back());
-  }
+  
+ 
   return t;
 }
 
