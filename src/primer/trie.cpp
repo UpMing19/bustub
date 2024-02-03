@@ -96,8 +96,64 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   // You should walk through the trie and remove nodes if necessary. If the node doesn't contain a value any more,
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
   Trie t;
-  
- 
+  auto node = root_->Clone();
+  auto new_root = std::shared_ptr<TrieNode>(std::move(node));
+
+  std::shared_ptr<TrieNode> now = std::make_shared<TrieNode>();
+  now = new_root;
+  t.root_ = new_root;
+  std::vector<std::shared_ptr<TrieNode>> v;
+
+  for (auto c : key) {
+    if (now->children_.find(c) == now->children_.end()) {
+      t.root_ = now;
+      return t;
+    }
+    v.push_back(now);
+    auto node = now->children_.at(c)->Clone();
+    now = std::shared_ptr<TrieNode>(std::move(node));
+  }
+  v.push_back(now);
+
+  if (v.back()->children_.empty()) {
+    auto node = v.back();
+    v.pop_back();
+    if (v.empty()) {
+      t.root_ = nullptr;
+      return t;
+    }
+    auto node2 = v[v.size() - 1];
+    node2->children_.erase(key.back());
+    int sz = v.size();
+    int sz_str = key.size();
+    for (int i = sz - 1, j = sz_str - 2; i >= 1 && j >= 0; i--, j--) {
+      auto node_i = v[i];
+      auto node_j = v[i - 1];
+      node_j->children_[key[j]] = node_i;
+    }
+  } else {
+    auto old_node = v.back();
+    v.pop_back();
+    auto new_node = old_node->Clone();
+    auto new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
+    v.push_back(new_node2);
+    int sz = v.size();
+    int sz_str = key.size();
+    for (int i = sz - 1, j = sz_str - 1; i >= 1 && j >= 0; i--, j--) {
+      auto node_i = v[i];
+      auto node_j = v[i - 1];
+      node_j->children_[key[j]] = node_i;
+    }
+  }
+
+  // for (int i = v.size() - 1; i >= 1; i--) {
+  //   int j = i - 1;
+  //   if (v[i]->children_.empty()) {
+  //     v[j]->children_.erase(key[i-1]);
+  //   }
+  // }
+
+  t.root_ = v[0];
   return t;
 }
 
