@@ -113,29 +113,55 @@ auto Trie::Remove(std::string_view key) const -> Trie {
     auto node = now->children_.at(c)->Clone();
     now = std::shared_ptr<TrieNode>(std::move(node));
   }
+
   v.push_back(now);
 
   if (v.back()->children_.empty()) {
-    auto node = v.back();
-    v.pop_back();
-    if (v.empty()) {
-      t.root_ = nullptr;
-      return t;
-    }
-    auto node2 = v[v.size() - 1];
-    node2->children_.erase(key.back());
-    int sz = v.size();
-    int sz_str = key.size();
-    for (int i = sz - 1, j = sz_str - 2; i >= 1 && j >= 0; i--, j--) {
-      auto node_i = v[i];
-      auto node_j = v[i - 1];
-      node_j->children_[key[j]] = node_i;
-    }
-  } else {
+    // auto node = v.back();
+    //  v.pop_back();
+    //  if (v.empty()) {
+    //    t.root_ = nullptr;
+    //    return t;
+    //  }
+    debug(key);
     auto old_node = v.back();
     v.pop_back();
     auto new_node = old_node->Clone();
     auto new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
+    new_node2->is_value_node_ = false;
+    v.push_back(new_node2);
+    //  auto node2 = v[v.size() - 1];
+    //  node2->children_.erase(key.back());
+    int sz = v.size();
+    int sz_str = key.size();
+    int flag = 1;
+    for (int i = sz - 1, j = sz_str - 1; i >= 1 && j >= 0; i--, j--) {
+      auto node_i = v[i];
+      auto node_j = v[i - 1];
+      if (key == "test") {
+        debug(node_i->children_.empty());
+        debug(node_i->is_value_node_);
+      }
+
+      if (node_i->children_.empty() && !node_i->is_value_node_ && (flag != 0)) {
+        node_j->children_.erase(key[j]);
+        continue;
+      }
+      flag = 0;
+      node_j->children_[key[j]] = node_i;
+    }
+
+  } else {
+    // debug("another:");
+    // debug(key);
+    auto old_node = v.back();
+    v.pop_back();
+
+    auto new_node = old_node->Clone();
+    auto new_node2 = std::make_shared<TrieNode>();
+    new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
+    new_node2->is_value_node_ = false; //todo:为什么值节点改不成功
+
     v.push_back(new_node2);
     int sz = v.size();
     int sz_str = key.size();
@@ -146,14 +172,12 @@ auto Trie::Remove(std::string_view key) const -> Trie {
     }
   }
 
-  // for (int i = v.size() - 1; i >= 1; i--) {
-  //   int j = i - 1;
-  //   if (v[i]->children_.empty()) {
-  //     v[j]->children_.erase(key[i-1]);
-  //   }
-  // }
-
+  if (v[0]->children_.empty()) {
+    t.root_ = nullptr;
+    return t;
+  }
   t.root_ = v[0];
+
   return t;
 }
 
