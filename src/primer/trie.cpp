@@ -97,11 +97,17 @@ auto Trie::Remove(std::string_view key) const -> Trie {
   // you should convert it to `TrieNode`. If a node doesn't have children any more, you should remove it.
   Trie t;
   auto node = root_->Clone();
+  // if (!root_->is_value_node_) {
+  //   node->is_value_node_ = false;
+  // }
+  debug(root_->is_value_node_);
+  debug(node->is_value_node_);
+  debug(key);
+  debug(&(*root_));
+  debug(&(*node));
   auto new_root = std::shared_ptr<TrieNode>(std::move(node));
+  auto now = new_root;
 
-  std::shared_ptr<TrieNode> now = std::make_shared<TrieNode>();
-  now = new_root;
-  t.root_ = new_root;
   std::vector<std::shared_ptr<TrieNode>> v;
 
   for (auto c : key) {
@@ -110,38 +116,30 @@ auto Trie::Remove(std::string_view key) const -> Trie {
       return t;
     }
     v.push_back(now);
-    auto node = now->children_.at(c)->Clone();
+    auto node = now->children_[c]->Clone();
     now = std::shared_ptr<TrieNode>(std::move(node));
   }
 
   v.push_back(now);
 
   if (v.back()->children_.empty()) {
-    // auto node = v.back();
-    //  v.pop_back();
-    //  if (v.empty()) {
-    //    t.root_ = nullptr;
-    //    return t;
-    //  }
-    debug(key);
     auto old_node = v.back();
     v.pop_back();
     auto new_node = old_node->Clone();
     auto new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
     new_node2->is_value_node_ = false;
     v.push_back(new_node2);
-    //  auto node2 = v[v.size() - 1];
-    //  node2->children_.erase(key.back());
+
     int sz = v.size();
     int sz_str = key.size();
     int flag = 1;
     for (int i = sz - 1, j = sz_str - 1; i >= 1 && j >= 0; i--, j--) {
       auto node_i = v[i];
       auto node_j = v[i - 1];
-      if (key == "test") {
-        debug(node_i->children_.empty());
-        debug(node_i->is_value_node_);
-      }
+      // if (key == "test") {
+      //   debug(node_i->children_.empty());
+      //   debug(node_i->is_value_node_);
+      // }
 
       if (node_i->children_.empty() && !node_i->is_value_node_ && (flag != 0)) {
         node_j->children_.erase(key[j]);
@@ -150,25 +148,27 @@ auto Trie::Remove(std::string_view key) const -> Trie {
       flag = 0;
       node_j->children_[key[j]] = node_i;
     }
-
   } else {
-    // debug("another:");
-    // debug(key);
     auto old_node = v.back();
     v.pop_back();
 
     auto new_node = old_node->Clone();
-    auto new_node2 = std::make_shared<TrieNode>();
-    new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
-    new_node2->is_value_node_ = false; //todo:为什么值节点改不成功
+    auto new_node2 = std::shared_ptr<TrieNode>(std::move(new_node));
+    auto new_node3 = std::make_shared<TrieNode>(new_node2->children_);
+    // new_node2 = static_cast<std::shared_ptr<TrieNode>>(new_node2);
+    // new_node2->is_value_node_ = false;  // todo:为什么值节点改不成功
 
-    v.push_back(new_node2);
+    v.push_back(new_node3);
     int sz = v.size();
     int sz_str = key.size();
     for (int i = sz - 1, j = sz_str - 1; i >= 1 && j >= 0; i--, j--) {
       auto node_i = v[i];
       auto node_j = v[i - 1];
       node_j->children_[key[j]] = node_i;
+      if (i == 1) {
+        // debug(&(*root_));
+        // debug(&(*node_j));
+      }
     }
   }
 
@@ -176,6 +176,8 @@ auto Trie::Remove(std::string_view key) const -> Trie {
     t.root_ = nullptr;
     return t;
   }
+  debug(&(*v[0]));
+  debug(v[0]->is_value_node_);
   t.root_ = v[0];
 
   return t;

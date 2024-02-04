@@ -42,11 +42,11 @@ TEST(TrieDebugger, TestCase) {
 
   // Put a breakpoint here.
 
-  std::cout<<"put begin!"<<'\n';
+  std::cout << "put begin!" << '\n';
   trie = trie.Put<uint32_t>("65", 25);
   trie = trie.Put<uint32_t>("969", 30);
 
-  std::cout<<"put end!"<<'\n';
+  std::cout << "put end!" << '\n';
 
   // (1) How many children nodes are there on the root?
   // Replace `CASE_1_YOUR_ANSWER` in `trie_answer.h` with the correct answer.
