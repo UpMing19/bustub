@@ -7,7 +7,7 @@
 #include "common/exception.h"
 #include "execution/executors/topn_executor.h"
 
-#define debug(x) std::cout << #x << ":" << x << '\n';
+#define debug(x) std::cout << #x << ":" << (x) << '\n';
 
 namespace bustub {
 
