@@ -1,7 +1,7 @@
 #include "primer/trie_store.h"
 #include <pthread.h>
 #include <memory>
-#include <mutex>
+
 #include <optional>
 #include "common/exception.h"
 #include "primer/trie.h"
