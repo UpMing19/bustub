@@ -40,13 +40,13 @@ using ::testing::Return;
 
 class FooInterface {
  public:
-  virtual ~FooInterface() = default;
+  virtual ~FooInterface() {}
   virtual void DoThis() = 0;
 };
 
 class MockFoo : public FooInterface {
  public:
-  MockFoo() = default;
+  MockFoo() {}
 
   MOCK_METHOD0(DoThis, void());
 

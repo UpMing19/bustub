@@ -52,7 +52,7 @@ class HashJoinExecutor : public AbstractExecutor {
   auto GetOutputSchema() const -> const Schema & override { return plan_->OutputSchema(); };
 
  private:
-  /** The HashJoin plan node to be executed. */
+  /** The NestedLoopJoin plan node to be executed. */
   const HashJoinPlanNode *plan_;
 };
 

@@ -23,7 +23,6 @@
 #include "execution/expressions/abstract_expression.h"
 #include "fmt/format.h"
 #include "storage/table/tuple.h"
-#include "type/type.h"
 #include "type/type_id.h"
 #include "type/value_factory.h"
 
@@ -39,10 +38,8 @@ class ArithmeticExpression : public AbstractExpression {
  public:
   /** Creates a new comparison expression representing (left comp_type right). */
   ArithmeticExpression(AbstractExpressionRef left, AbstractExpressionRef right, ArithmeticType compute_type)
-      : AbstractExpression({std::move(left), std::move(right)}, Column{"<val>", TypeId::INTEGER}),
-        compute_type_{compute_type} {
-    if (GetChildAt(0)->GetReturnType().GetType() != TypeId::INTEGER ||
-        GetChildAt(1)->GetReturnType().GetType() != TypeId::INTEGER) {
+      : AbstractExpression({std::move(left), std::move(right)}, TypeId::INTEGER), compute_type_{compute_type} {
+    if (GetChildAt(0)->GetReturnType() != TypeId::INTEGER || GetChildAt(1)->GetReturnType() != TypeId::INTEGER) {
       throw bustub::NotImplementedException("only support integer for now");
     }
   }

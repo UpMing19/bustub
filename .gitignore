@@ -1,7 +1,6 @@
 #==============================================================================#
 # This file specifies intentionally untracked files that git should ignore.
 #==============================================================================#
-/GRADESCOPE.md
 
 #==============================================================================#
 # File extensions to be ignored anywhere in the tree.
@@ -104,7 +103,6 @@ tmp/
 *.gcno
 *.gcda
 
-
 #==============================================================================#
 # Eclipse
 #==============================================================================#
@@ -132,6 +130,7 @@ local.properties
 
 # PyDev specific (Python IDE for Eclipse)
 *.pydevproject
+.mypy_cache/
 
 # CDT-specific (C/C++ Development Tooling)
 .cproject
@@ -244,6 +243,3 @@ docs/dev
 
 # Submission zip files
 *.zip
-
-
-wmy

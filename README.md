@@ -12,10 +12,6 @@ BusTub supports basic SQL and comes with an interactive shell. You can get it ru
 
 **WARNING: IF YOU ARE A STUDENT IN THE CLASS, DO NOT DIRECTLY FORK THIS REPO. DO NOT PUSH PROJECT SOLUTIONS PUBLICLY. THIS IS AN ACADEMIC INTEGRITY VIOLATION AND CAN LEAD TO GETTING YOUR DEGREE REVOKED, EVEN AFTER YOU GRADUATE.**
 
-We make the autograder for each assignment available to non-CMU students on Gradescope after their due date for CMU students. In exchange for making this available to the public, we ask that you do not make your project implementations public on Github or other source code repositories. Please read the course FAQ on how to use the autograder on Gradescope. Run `python3 gradescope_sign.py` to sign an agreement before submitting to the autograder.
-
-**WARNING: IF YOU ARE A STUDENT OUTSIDE CMU, DO NOT MAKE YOUR SOLUTION PUBLICLY AVAILABLE, AND DO SUBMIT YOUR OWN WORK. OTHERWISE, YOU WILL BE BANNED FROM USING THE AUTOGRADER.** Thank you for creating a fair learning environment.
-
 ## Cloning this Repository
 
 The following instructions are adapted from the Github documentation on [duplicating a repository](https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/duplicating-a-repository). The procedure below walks you through creating a private BusTub repository that you can use for development.
@@ -73,10 +69,9 @@ We suggest working on your projects in separate branches. If you do not understa
 
 ## Build
 
-We recommend developing BusTub on Ubuntu 22.04, or macOS (M1/M2/Intel). We do not support any other environments (i.e., do not open issues or come to office hours to debug them). We do not support WSL. The grading environment runs
-Ubuntu 22.04.
+We recommend developing BusTub on Ubuntu 20.04, Ubuntu 22.04, or macOS (M1/M2/Intel). We do not support any other environments (i.e., do not open issues or come to office hours to debug them). We do not support WSL.
 
-### Linux (Recommended) / macOS (Development Only)
+### Linux / Mac (Recommended)
 
 To ensure that you have the proper packages on your machine, run the following script to automatically install them:
 
@@ -107,11 +102,66 @@ This enables [AddressSanitizer](https://github.com/google/sanitizers) by default
 
 If you want to use other sanitizers,
 
+
 ```
 $ cmake -DCMAKE_BUILD_TYPE=Debug -DBUSTUB_SANITIZER=thread ..
 $ make -j`nproc`
 ```
 
-There are some differences between macOS and Linux (i.e., mutex behavior) that might cause test cases
-to produce different results in different platforms. We recommend students to use a Linux VM for running
-test cases and reproducing errors whenever possible.
+### Windows (Not Guaranteed to Work)
+
+If you are using Windows 10, you can use the Windows Subsystem for Linux (WSL) to develop, build, and test Bustub. All you need is to [Install WSL](https://docs.microsoft.com/en-us/windows/wsl/install-win10). You can just choose "Ubuntu" (no specific version) in Microsoft Store. Then, enter WSL and follow the above instructions.
+
+If you are using CLion, it also [works with WSL](https://blog.jetbrains.com/clion/2018/01/clion-and-linux-toolchain-on-windows-are-now-friends).
+
+### Vagrant (Not Guaranteed to Work)
+
+First, make sure you have Vagrant and Virtualbox installed
+```
+$ sudo apt update
+$ sudo apt install vagrant virtualbox
+```
+
+From the repository directory, run this command to create and start a Vagrant box:
+
+```
+$ vagrant up
+```
+
+This will start a Vagrant box running Ubuntu 20.02 in the background with all the packages needed. To access it, type
+
+```
+$ vagrant ssh
+```
+
+to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
+
+### Docker (Not Guaranteed to Work)
+
+First, make sure that you have docker installed:
+```
+$ sudo apt update
+$ sudo apt install docker
+```
+
+From the repository directory, run these commands to create a Docker image and container:
+
+```
+$ docker build . -t bustub
+$ docker create -t -i --name bustub -v $(pwd):/bustub bustub bash
+```
+
+This will create a Docker image and container. To run it, type:
+
+```
+$ docker start -a -i bustub
+```
+
+to open a shell within the box. You can find Bustub's code mounted at `/bustub` and run the commands mentioned above like normal.
+
+## Testing
+
+```
+$ cd build
+$ make check-tests
+```

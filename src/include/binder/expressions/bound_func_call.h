@@ -1,13 +1,11 @@
 #pragma once
 
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
 
 #include "binder/bound_expression.h"
-#include "binder/expressions/bound_window.h"
 
 namespace bustub {
 

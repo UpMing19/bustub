@@ -35,15 +35,13 @@
 // This file is #included from gtest-internal.h.
 // Do not #include this file anywhere else!
 
-#include <string>
-
 #include "gtest/gtest.h"
 #include "gtest/internal/gtest-filepath.h"
 #include "src/gtest-internal-inl.h"
 
-#ifdef GTEST_OS_WINDOWS_MOBILE
+#if GTEST_OS_WINDOWS_MOBILE
 #include <windows.h>  // NOLINT
-#elif defined(GTEST_OS_WINDOWS)
+#elif GTEST_OS_WINDOWS
 #include <direct.h>  // NOLINT
 #endif               // GTEST_OS_WINDOWS_MOBILE
 
@@ -51,7 +49,7 @@ namespace testing {
 namespace internal {
 namespace {
 
-#ifdef GTEST_OS_WINDOWS_MOBILE
+#if GTEST_OS_WINDOWS_MOBILE
 
 // Windows CE doesn't have the remove C function.
 int remove(const char* path) {
@@ -80,7 +78,7 @@ TEST(GetCurrentDirTest, ReturnsCurrentDir) {
   const FilePath cwd = FilePath::GetCurrentDir();
   posix::ChDir(original_dir.c_str());
 
-#if defined(GTEST_OS_WINDOWS) || defined(GTEST_OS_OS2)
+#if GTEST_OS_WINDOWS || GTEST_OS_OS2
 
   // Skips the ":".
   const char* const cwd_without_drive = strchr(cwd.c_str(), ':');
@@ -174,7 +172,7 @@ TEST(RemoveDirectoryNameTest, ShouldAlsoGiveFileNameForAlternateSeparator) {
 
 // RemoveFileName "" -> "./"
 TEST(RemoveFileNameTest, EmptyName) {
-#ifdef GTEST_OS_WINDOWS_MOBILE
+#if GTEST_OS_WINDOWS_MOBILE
   // On Windows CE, we use the root as the current directory.
   EXPECT_EQ(GTEST_PATH_SEP_, FilePath("").RemoveFileName().string());
 #else
@@ -357,7 +355,7 @@ TEST(RemoveTrailingPathSeparatorTest, ShouldReturnUnmodified) {
 }
 
 TEST(DirectoryTest, RootDirectoryExists) {
-#ifdef GTEST_OS_WINDOWS           // We are on Windows.
+#if GTEST_OS_WINDOWS              // We are on Windows.
   char current_drive[_MAX_PATH];  // NOLINT
   current_drive[0] = static_cast<char>(_getdrive() + 'A' - 1);
   current_drive[1] = ':';
@@ -369,7 +367,7 @@ TEST(DirectoryTest, RootDirectoryExists) {
 #endif  // GTEST_OS_WINDOWS
 }
 
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
 TEST(DirectoryTest, RootOfWrongDriveDoesNotExists) {
   const int saved_drive_ = _getdrive();
   // Find a drive that doesn't exist. Start with 'Z' to avoid common ones.
@@ -387,7 +385,7 @@ TEST(DirectoryTest, RootOfWrongDriveDoesNotExists) {
 }
 #endif  // GTEST_OS_WINDOWS
 
-#ifndef GTEST_OS_WINDOWS_MOBILE
+#if !GTEST_OS_WINDOWS_MOBILE
 // Windows CE _does_ consider an empty directory to exist.
 TEST(DirectoryTest, EmptyPathDirectoryDoesNotExist) {
   EXPECT_FALSE(FilePath("").DirectoryExists());
@@ -395,7 +393,7 @@ TEST(DirectoryTest, EmptyPathDirectoryDoesNotExist) {
 #endif  // !GTEST_OS_WINDOWS_MOBILE
 
 TEST(DirectoryTest, CurrentDirectoryExists) {
-#ifdef GTEST_OS_WINDOWS  // We are on Windows.
+#if GTEST_OS_WINDOWS  // We are on Windows.
 #ifndef _WIN32_CE     // Windows CE doesn't have a current directory.
 
   EXPECT_TRUE(FilePath(".").DirectoryExists());
@@ -423,13 +421,8 @@ TEST(NormalizeTest, MultipleConsecutiveSeparatorsInMidstring) {
 // "/bar" == //bar" == "///bar"
 TEST(NormalizeTest, MultipleConsecutiveSeparatorsAtStringStart) {
   EXPECT_EQ(GTEST_PATH_SEP_ "bar", FilePath(GTEST_PATH_SEP_ "bar").string());
-#ifdef GTEST_OS_WINDOWS
-  EXPECT_EQ(GTEST_PATH_SEP_ GTEST_PATH_SEP_ "bar",
-            FilePath(GTEST_PATH_SEP_ GTEST_PATH_SEP_ "bar").string());
-#else
   EXPECT_EQ(GTEST_PATH_SEP_ "bar",
             FilePath(GTEST_PATH_SEP_ GTEST_PATH_SEP_ "bar").string());
-#endif
   EXPECT_EQ(
       GTEST_PATH_SEP_ "bar",
       FilePath(GTEST_PATH_SEP_ GTEST_PATH_SEP_ GTEST_PATH_SEP_ "bar").string());
@@ -515,7 +508,7 @@ class DirectoryCreationTest : public Test {
   }
 
   // Strings representing a directory and a file, with identical paths
-  // except for the trailing separator character that distinguishes
+  // except for the trailing separator character that distinquishes
   // a directory named 'test' from a file named 'test'. Example names:
   FilePath testdata_path_;  // "/tmp/directory_creation/test/"
   FilePath testdata_file_;  // "/tmp/directory_creation/test"
@@ -620,7 +613,7 @@ TEST(FilePathTest, IsDirectory) {
 TEST(FilePathTest, IsAbsolutePath) {
   EXPECT_FALSE(FilePath("is" GTEST_PATH_SEP_ "relative").IsAbsolutePath());
   EXPECT_FALSE(FilePath("").IsAbsolutePath());
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
   EXPECT_TRUE(
       FilePath("c:\\" GTEST_PATH_SEP_ "is_not" GTEST_PATH_SEP_ "relative")
           .IsAbsolutePath());
@@ -628,9 +621,6 @@ TEST(FilePathTest, IsAbsolutePath) {
   EXPECT_TRUE(
       FilePath("c:/" GTEST_PATH_SEP_ "is_not" GTEST_PATH_SEP_ "relative")
           .IsAbsolutePath());
-  EXPECT_TRUE(FilePath("d:/Windows").IsAbsolutePath());
-  EXPECT_TRUE(FilePath("\\\\Host\\Share").IsAbsolutePath());
-  EXPECT_TRUE(FilePath("\\\\Host\\Share\\Folder").IsAbsolutePath());
 #else
   EXPECT_TRUE(FilePath(GTEST_PATH_SEP_ "is_not" GTEST_PATH_SEP_ "relative")
                   .IsAbsolutePath());
@@ -638,7 +628,7 @@ TEST(FilePathTest, IsAbsolutePath) {
 }
 
 TEST(FilePathTest, IsRootDirectory) {
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
   EXPECT_TRUE(FilePath("a:\\").IsRootDirectory());
   EXPECT_TRUE(FilePath("Z:/").IsRootDirectory());
   EXPECT_TRUE(FilePath("e://").IsRootDirectory());
@@ -647,16 +637,6 @@ TEST(FilePathTest, IsRootDirectory) {
   EXPECT_FALSE(FilePath("b:a").IsRootDirectory());
   EXPECT_FALSE(FilePath("8:/").IsRootDirectory());
   EXPECT_FALSE(FilePath("c|/").IsRootDirectory());
-  EXPECT_TRUE(FilePath("c:/").IsRootDirectory());
-  EXPECT_FALSE(FilePath("d:/Windows").IsRootDirectory());
-
-  // This is for backward compatibility, since callers (even in this library)
-  // have assumed IsRootDirectory() implies a trailing directory separator.
-  EXPECT_FALSE(FilePath("\\\\Host\\Share").IsRootDirectory());
-
-  EXPECT_TRUE(FilePath("\\\\Host\\Share\\").IsRootDirectory());
-  EXPECT_FALSE(FilePath("\\\\Host\\Share\\.").IsRootDirectory());
-  EXPECT_FALSE(FilePath("\\\\Host\\Share\\C$\\").IsRootDirectory());
 #else
   EXPECT_TRUE(FilePath("/").IsRootDirectory());
   EXPECT_TRUE(FilePath("//").IsRootDirectory());

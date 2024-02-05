@@ -7,19 +7,14 @@
 namespace bustub {
 
 IndexStatement::IndexStatement(std::string index_name, std::unique_ptr<BoundBaseTableRef> table,
-                               std::vector<std::unique_ptr<BoundColumnRef>> cols, std::string index_type,
-                               std::vector<std::string> col_options, std::vector<std::pair<std::string, int>> options)
+                               std::vector<std::unique_ptr<BoundColumnRef>> cols)
     : BoundStatement(StatementType::INDEX_STATEMENT),
       index_name_(std::move(index_name)),
       table_(std::move(table)),
-      cols_(std::move(cols)),
-      index_type_(std::move(index_type)),
-      col_options_(std::move(col_options)),
-      options_(std::move(options)) {}
+      cols_(std::move(cols)) {}
 
 auto IndexStatement::ToString() const -> std::string {
-  return fmt::format("BoundIndex {{ index_name={}, table={}, cols={}, using={}, col_options=[{}], options=[{}] }}",
-                     index_name_, *table_, cols_, index_type_, fmt::join(col_options_, ","), fmt::join(options_, ","));
+  return fmt::format("BoundIndex {{ index_name={}, table={}, cols={} }}", index_name_, *table_, cols_);
 }
 
 }  // namespace bustub

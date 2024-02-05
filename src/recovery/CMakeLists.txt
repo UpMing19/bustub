@@ -1,6 +1,7 @@
 add_library(
   bustub_recovery
   OBJECT
+  checkpoint_manager.cpp
   log_manager.cpp)
 
 set(ALL_OBJECT_FILES

@@ -19,8 +19,6 @@ class BoundAlias : public BoundExpression {
 
   auto HasAggregation() const -> bool override { return child_->HasAggregation(); }
 
-  auto HasWindowFunction() const -> bool override { return child_->HasWindowFunction(); }
-
   /** Alias name. */
   std::string alias_;
 

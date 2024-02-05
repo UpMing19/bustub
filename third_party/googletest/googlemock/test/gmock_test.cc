@@ -174,6 +174,6 @@ TEST(WideInitGoogleMockTest, ParsesGoogleMockFlagAndUnrecognizedFlag) {
 // Makes sure Google Mock flags can be accessed in code.
 TEST(FlagTest, IsAccessibleInCode) {
   bool dummy =
-      GMOCK_FLAG_GET(catch_leaked_mocks) && GMOCK_FLAG_GET(verbose).empty();
+      GMOCK_FLAG_GET(catch_leaked_mocks) && GMOCK_FLAG_GET(verbose) == "";
   (void)dummy;  // Avoids the "unused local variable" warning.
 }

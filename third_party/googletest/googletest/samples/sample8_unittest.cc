@@ -32,8 +32,6 @@
 // and each test is given one combination as a parameter.
 
 // Use class definitions to test from this header.
-#include <tuple>
-
 #include "prime_tables.h"
 #include "gtest/gtest.h"
 namespace {

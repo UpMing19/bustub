@@ -32,14 +32,13 @@
 
 #include "gtest/internal/gtest-port.h"
 
-#ifdef GTEST_OS_MAC
+#if GTEST_OS_MAC
 #include <time.h>
 #endif  // GTEST_OS_MAC
 
 #include <chrono>  // NOLINT
 #include <list>
 #include <memory>
-#include <string>
 #include <thread>   // NOLINT
 #include <utility>  // For std::pair and std::make_pair.
 #include <vector>
@@ -97,7 +96,7 @@ class Base {
   explicit Base(int n) : member_(n) {}
   Base(const Base&) = default;
   Base& operator=(const Base&) = default;
-  virtual ~Base() = default;
+  virtual ~Base() {}
   int member() { return member_; }
 
  private:
@@ -281,11 +280,9 @@ TEST(FormatCompilerIndependentFileLocationTest, FormatsUknownFileAndLine) {
   EXPECT_EQ("unknown file", FormatCompilerIndependentFileLocation(nullptr, -1));
 }
 
-#if defined(GTEST_OS_LINUX) || defined(GTEST_OS_MAC) ||           \
-    defined(GTEST_OS_QNX) || defined(GTEST_OS_FUCHSIA) ||         \
-    defined(GTEST_OS_DRAGONFLY) || defined(GTEST_OS_FREEBSD) ||   \
-    defined(GTEST_OS_GNU_KFREEBSD) || defined(GTEST_OS_NETBSD) || \
-    defined(GTEST_OS_OPENBSD) || defined(GTEST_OS_GNU_HURD)
+#if GTEST_OS_LINUX || GTEST_OS_MAC || GTEST_OS_QNX || GTEST_OS_FUCHSIA || \
+    GTEST_OS_DRAGONFLY || GTEST_OS_FREEBSD || GTEST_OS_GNU_KFREEBSD ||    \
+    GTEST_OS_NETBSD || GTEST_OS_OPENBSD || GTEST_OS_GNU_HURD
 void* ThreadFunc(void* data) {
   internal::Mutex* mutex = static_cast<internal::Mutex*>(data);
   mutex->Lock();
@@ -361,7 +358,7 @@ TEST(GtestCheckDeathTest, DiesWithCorrectOutputOnFailure) {
   const char regex[] =
 #ifdef _MSC_VER
       "googletest-port-test\\.cc\\(\\d+\\):"
-#elif defined(GTEST_USES_POSIX_RE)
+#elif GTEST_USES_POSIX_RE
       "googletest-port-test\\.cc:[0-9]+"
 #else
       "googletest-port-test\\.cc:\\d+"
@@ -372,7 +369,7 @@ TEST(GtestCheckDeathTest, DiesWithCorrectOutputOnFailure) {
                             regex);
 }
 
-#ifdef GTEST_HAS_DEATH_TEST
+#if GTEST_HAS_DEATH_TEST
 
 TEST(GtestCheckDeathTest, LivesSilentlyOnSuccess) {
   EXPECT_EXIT(
@@ -390,7 +387,7 @@ TEST(GtestCheckDeathTest, LivesSilentlyOnSuccess) {
 // the platform. The test will produce compiler errors in case of failure.
 // For simplicity, we only cover the most important platforms here.
 TEST(RegexEngineSelectionTest, SelectsCorrectRegexEngine) {
-#ifdef GTEST_HAS_ABSL
+#if GTEST_HAS_ABSL
   EXPECT_TRUE(GTEST_USES_RE2);
 #elif GTEST_HAS_POSIX_RE
   EXPECT_TRUE(GTEST_USES_POSIX_RE);
@@ -399,7 +396,7 @@ TEST(RegexEngineSelectionTest, SelectsCorrectRegexEngine) {
 #endif
 }
 
-#ifdef GTEST_USES_POSIX_RE
+#if GTEST_USES_POSIX_RE
 
 template <typename Str>
 class RETest : public ::testing::Test {};
@@ -456,7 +453,7 @@ TYPED_TEST(RETest, PartialMatchWorks) {
   EXPECT_FALSE(RE::PartialMatch(TypeParam("zza"), re));
 }
 
-#elif defined(GTEST_USES_SIMPLE_RE)
+#elif GTEST_USES_SIMPLE_RE
 
 TEST(IsInSetTest, NulCharIsNotInAnySet) {
   EXPECT_FALSE(IsInSet('\0', ""));
@@ -918,7 +915,7 @@ TEST(RETest, PartialMatchWorks) {
 
 #endif  // GTEST_USES_POSIX_RE
 
-#ifndef GTEST_OS_WINDOWS_MOBILE
+#if !GTEST_OS_WINDOWS_MOBILE
 
 TEST(CaptureTest, CapturesStdout) {
   CaptureStdout();
@@ -979,14 +976,14 @@ TEST(ThreadLocalTest, SingleParamConstructorInitializesToParam) {
   EXPECT_EQ(&i, t2.get());
 }
 
-class NoDefaultConstructor {
+class NoDefaultContructor {
  public:
-  explicit NoDefaultConstructor(const char*) {}
-  NoDefaultConstructor(const NoDefaultConstructor&) = default;
+  explicit NoDefaultContructor(const char*) {}
+  NoDefaultContructor(const NoDefaultContructor&) {}
 };
 
 TEST(ThreadLocalTest, ValueDefaultContructorIsNotRequiredForParamVersion) {
-  ThreadLocal<NoDefaultConstructor> bar(NoDefaultConstructor("foo"));
+  ThreadLocal<NoDefaultContructor> bar(NoDefaultContructor("foo"));
   bar.pointer();
 }
 
@@ -1011,7 +1008,7 @@ TEST(ThreadLocalTest, PointerAndConstPointerReturnSameValue) {
   EXPECT_EQ(thread_local_string.pointer(), const_thread_local_string.pointer());
 }
 
-#ifdef GTEST_IS_THREADSAFE
+#if GTEST_IS_THREADSAFE
 
 void AddTwo(int* param) { *param += 2; }
 
@@ -1066,7 +1063,7 @@ class AtomicCounterWithMutex {
 
       GTEST_CHECK_POSIX_SUCCESS_(pthread_mutex_unlock(&memory_barrier_mutex));
       GTEST_CHECK_POSIX_SUCCESS_(pthread_mutex_destroy(&memory_barrier_mutex));
-#elif defined(GTEST_OS_WINDOWS)
+#elif GTEST_OS_WINDOWS
       // On Windows, performing an interlocked access puts up a memory barrier.
       volatile LONG dummy = 0;
       ::InterlockedIncrement(&dummy);
@@ -1104,9 +1101,9 @@ TEST(MutexTest, OnlyOneThreadCanLockAtATime) {
   // Creates and runs kThreadCount threads that increment locked_counter
   // kCycleCount times each.
   for (int i = 0; i < kThreadCount; ++i) {
-    counting_threads[i] = std::make_unique<ThreadType>(
+    counting_threads[i].reset(new ThreadType(
         &CountingThreadFunc, make_pair(&locked_counter, kCycleCount),
-        &threads_can_start);
+        &threads_can_start));
   }
   threads_can_start.Notify();
   for (int i = 0; i < kThreadCount; ++i) counting_threads[i]->Join();
@@ -1148,14 +1145,14 @@ class DestructorCall {
  public:
   DestructorCall() {
     invoked_ = false;
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
     wait_event_.Reset(::CreateEvent(NULL, TRUE, FALSE, NULL));
     GTEST_CHECK_(wait_event_.Get() != NULL);
 #endif
   }
 
   bool CheckDestroyed() const {
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
     if (::WaitForSingleObject(wait_event_.Get(), 1000) != WAIT_OBJECT_0)
       return false;
 #endif
@@ -1164,7 +1161,7 @@ class DestructorCall {
 
   void ReportDestroyed() {
     invoked_ = true;
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
     ::SetEvent(wait_event_.Get());
 #endif
   }
@@ -1180,7 +1177,7 @@ class DestructorCall {
 
  private:
   bool invoked_;
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
   AutoHandle wait_event_;
 #endif
   static std::vector<DestructorCall*>* const list_;
@@ -1280,12 +1277,12 @@ TEST(ThreadLocalTest, ThreadLocalMutationsAffectOnlyCurrentThread) {
 
 #endif  // GTEST_IS_THREADSAFE
 
-#ifdef GTEST_OS_WINDOWS
+#if GTEST_OS_WINDOWS
 TEST(WindowsTypesTest, HANDLEIsVoidStar) {
   StaticAssertTypeEq<HANDLE, void*>();
 }
 
-#if defined(GTEST_OS_WINDOWS_MINGW) && !defined(__MINGW64_VERSION_MAJOR)
+#if GTEST_OS_WINDOWS_MINGW && !defined(__MINGW64_VERSION_MAJOR)
 TEST(WindowsTypesTest, _CRITICAL_SECTIONIs_CRITICAL_SECTION) {
   StaticAssertTypeEq<CRITICAL_SECTION, _CRITICAL_SECTION>();
 }

@@ -14,7 +14,6 @@
 
 #include <sstream>
 #include <string>
-#include "type/type_id.h"
 
 namespace bustub {
 
@@ -22,12 +21,6 @@ auto Column::ToString(bool simplified) const -> std::string {
   if (simplified) {
     std::ostringstream os;
     os << column_name_ << ":" << Type::TypeIdToString(column_type_);
-    if (column_type_ == VARCHAR) {
-      os << "(" << length_ << ")";
-    }
-    if (column_type_ == VECTOR) {
-      os << "(" << length_ / sizeof(double) << ")";
-    }
     return (os.str());
   }
 
@@ -35,7 +28,12 @@ auto Column::ToString(bool simplified) const -> std::string {
 
   os << "Column[" << column_name_ << ", " << Type::TypeIdToString(column_type_) << ", "
      << "Offset:" << column_offset_ << ", ";
-  os << "Length:" << length_;
+
+  if (IsInlined()) {
+    os << "FixedLength:" << fixed_length_;
+  } else {
+    os << "VarLength:" << variable_length_;
+  }
   os << "]";
   return (os.str());
 }

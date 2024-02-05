@@ -88,7 +88,7 @@ class HashUtil {
       }
       case TypeId::VARCHAR: {
         auto raw = val->GetData();
-        auto len = val->GetStorageSize();
+        auto len = val->GetLength();
         return HashBytes(raw, len);
       }
       case TypeId::TIMESTAMP: {

@@ -21,7 +21,7 @@ main() {
     else
         echo "PACKAGES WILL BE INSTALLED. THIS MAY BREAK YOUR EXISTING TOOLCHAIN."
         echo "YOU ACCEPT ALL RESPONSIBILITY BY PROCEEDING."
-        read -p "Proceed? [y/N] : " yn
+        read -p "Proceed? [Y/n] : " yn
     
         case $yn in
             Y|y) install;;
@@ -69,7 +69,7 @@ install_mac() {
   # Install Homebrew.
   if test ! $(which brew); then
     echo "Installing Homebrew (https://brew.sh/)"
-    bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
+    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
   fi
   # Update Homebrew.
   brew update
@@ -79,7 +79,6 @@ install_mac() {
   brew ls --versions doxygen || brew install doxygen
   brew ls --versions git || brew install git
   (brew ls --versions llvm | grep 14) || brew install llvm@14
-  brew ls --versions libelf || brew install libelf
 }
 
 install_linux() {
@@ -95,9 +94,7 @@ install_linux() {
       doxygen \
       git \
       pkg-config \
-      zlib1g-dev \
-      libelf-dev \
-      libdwarf-dev
+      zlib1g-dev
 }
 
 main "$@"

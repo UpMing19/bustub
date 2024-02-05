@@ -36,9 +36,6 @@
 // This program will be invoked from a Python unit test.
 // Don't run it directly.
 
-#include <ostream>
-#include <string>
-
 #include "gtest/gtest.h"
 
 // Several different test cases and tests that will be listed.

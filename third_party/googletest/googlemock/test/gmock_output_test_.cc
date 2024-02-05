@@ -38,7 +38,10 @@
 #include "gtest/gtest.h"
 
 // Silence C4100 (unreferenced formal parameter)
-GTEST_DISABLE_MSC_WARNINGS_PUSH_(4100)
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4100)
+#endif
 
 using testing::_;
 using testing::AnyNumber;
@@ -52,7 +55,7 @@ using testing::Value;
 
 class MockFoo {
  public:
-  MockFoo() = default;
+  MockFoo() {}
 
   MOCK_METHOD3(Bar, char(const std::string& s, int i, double x));
   MOCK_METHOD2(Bar2, bool(int x, int y));
@@ -283,4 +286,6 @@ int main(int argc, char** argv) {
   return RUN_ALL_TESTS();
 }
 
-GTEST_DISABLE_MSC_WARNINGS_POP_()  // 4100
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif

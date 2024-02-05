@@ -37,8 +37,6 @@
 // directly.
 // clang-format off
 
-#include <string>
-
 #include "gtest/gtest.h"
 
 using ::testing::InitGoogleTest;

@@ -25,9 +25,6 @@ class StringUtil {
   /** @return true if haystack contains needle, false otherwise */
   static auto Contains(const std::string &haystack, const std::string &needle) -> bool;
 
-  /** @return true if haystack contains needle after keyword, false otherwise */
-  static auto ContainsAfter(const std::string &keyword, const std::string &haystack, const std::string &needle) -> bool;
-
   /** @return true if target string starts with given prefix, false otherwise */
   static auto StartsWith(const std::string &str, const std::string &prefix) -> bool;
 

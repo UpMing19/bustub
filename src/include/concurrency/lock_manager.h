@@ -85,7 +85,6 @@ class LockManager {
     cycle_detection_thread_ = new std::thread(&LockManager::RunCycleDetection, this);
   }
 
-#ifndef DISABLE_LOCK_MANAGER
   ~LockManager() {
     UnlockAll();
 
@@ -96,9 +95,6 @@ class LockManager {
       delete cycle_detection_thread_;
     }
   }
-#else
-  ~LockManager() = default;
-#endif
 
   /**
    * [LOCK_NOTE]

@@ -12,7 +12,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
@@ -52,8 +51,6 @@ enum class ExceptionType {
   EXECUTION = 12,
 };
 
-extern std::atomic<bool> global_disable_execution_exception_print;
-
 class Exception : public std::runtime_error {
  public:
   /**
@@ -78,9 +75,9 @@ class Exception : public std::runtime_error {
   Exception(ExceptionType exception_type, const std::string &message, bool print = true)
       : std::runtime_error(message), type_(exception_type) {
 #ifndef NDEBUG
-    if (print && !global_disable_execution_exception_print.load()) {
+    if (print) {
       std::string exception_message =
-          "\nException Type :: " + ExceptionTypeToString(type_) + ", Message :: " + message + "\n\n";
+          "\nException Type :: " + ExceptionTypeToString(type_) + "\nMessage :: " + message + "\n";
       std::cerr << exception_message;
     }
 #endif
@@ -112,8 +109,6 @@ class Exception : public std::runtime_error {
         return "Out of Memory";
       case ExceptionType::NOT_IMPLEMENTED:
         return "Not implemented";
-      case ExceptionType::EXECUTION:
-        return "Execution";
       default:
         return "Unknown";
     }
@@ -132,7 +127,7 @@ class NotImplementedException : public Exception {
 class ExecutionException : public Exception {
  public:
   ExecutionException() = delete;
-  explicit ExecutionException(const std::string &msg) : Exception(ExceptionType::EXECUTION, msg, true) {}
+  explicit ExecutionException(const std::string &msg) : Exception(ExceptionType::EXECUTION, msg, false) {}
 };
 
 }  // namespace bustub

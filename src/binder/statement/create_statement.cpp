@@ -5,14 +5,11 @@
 
 namespace bustub {
 
-CreateStatement::CreateStatement(std::string table, std::vector<Column> columns, std::vector<std::string> primary_key)
-    : BoundStatement(StatementType::CREATE_STATEMENT),
-      table_(std::move(table)),
-      columns_(std::move(columns)),
-      primary_key_(std::move(primary_key)) {}
+CreateStatement::CreateStatement(std::string table, std::vector<Column> columns)
+    : BoundStatement(StatementType::CREATE_STATEMENT), table_(std::move(table)), columns_(std::move(columns)) {}
 
 auto CreateStatement::ToString() const -> std::string {
-  return fmt::format("BoundCreate {{\n  table={}\n  columns={}\n  primary_key={}\n}}", table_, columns_, primary_key_);
+  return fmt::format("BoundCreate {{\n  table={}\n  columns={}\n}}", table_, columns_);
 }
 
 }  // namespace bustub

@@ -25,13 +25,13 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) {
   assert(values.size() == schema->GetColumnCount());
 
   // 1. Calculate the size of the tuple.
-  uint32_t tuple_size = schema->GetInlinedStorageSize();
+  uint32_t tuple_size = schema->GetLength();
   for (auto &i : schema->GetUnlinedColumns()) {
-    auto len = values[i].GetStorageSize();
+    auto len = values[i].GetLength();
     if (len == BUSTUB_VALUE_NULL) {
       len = 0;
     }
-    tuple_size += sizeof(uint32_t) + len;
+    tuple_size += (len + sizeof(uint32_t));
   }
 
   // 2. Allocate memory.
@@ -40,7 +40,7 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) {
 
   // 3. Serialize each attribute based on the input value.
   uint32_t column_count = schema->GetColumnCount();
-  uint32_t offset = schema->GetInlinedStorageSize();
+  uint32_t offset = schema->GetLength();
 
   for (uint32_t i = 0; i < column_count; i++) {
     const auto &col = schema->GetColumn(i);
@@ -49,11 +49,11 @@ Tuple::Tuple(std::vector<Value> values, const Schema *schema) {
       *reinterpret_cast<uint32_t *>(data_.data() + col.GetOffset()) = offset;
       // Serialize varchar value, in place (size+data).
       values[i].SerializeTo(data_.data() + offset);
-      auto len = values[i].GetStorageSize();
+      auto len = values[i].GetLength();
       if (len == BUSTUB_VALUE_NULL) {
         len = 0;
       }
-      offset += sizeof(uint32_t) + len;
+      offset += (len + sizeof(uint32_t));
     } else {
       values[i].SerializeTo(data_.data() + col.GetOffset());
     }
@@ -112,6 +112,7 @@ auto Tuple::ToString(const Schema *schema) const -> std::string {
     }
   }
   os << ")";
+  os << " Tuple size is " << data_.size();
 
   return os.str();
 }

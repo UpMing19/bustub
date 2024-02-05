@@ -138,13 +138,6 @@ class Translator(nodes.NodeVisitor):
     def depart_table(self, node):
         pass
 
-    def visit_system_message(self, node):
-        pass
-
-    def depart_system_message(self, node):
-        pass
-
-
 class MDWriter(writers.Writer):
     """GitHub-flavored markdown writer"""
 

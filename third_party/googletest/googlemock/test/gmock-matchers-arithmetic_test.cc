@@ -31,16 +31,15 @@
 //
 // This file tests some commonly used argument matchers.
 
-#include <cmath>
-#include <limits>
-#include <memory>
-#include <string>
-
-#include "test/gmock-matchers_test.h"
-
 // Silence warning C4244: 'initializing': conversion from 'int' to 'short',
 // possible loss of data and C4100, unreferenced local parameter
-GTEST_DISABLE_MSC_WARNINGS_PUSH_(4244 4100)
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4244)
+#pragma warning(disable : 4100)
+#endif
+
+#include "test/gmock-matchers_test.h"
 
 namespace testing {
 namespace gmock_matchers_test {
@@ -955,7 +954,7 @@ TEST(AllArgsTest, WorksForNonTuple) {
 
 class AllArgsHelper {
  public:
-  AllArgsHelper() = default;
+  AllArgsHelper() {}
 
   MOCK_METHOD2(Helper, int(char x, int y));
 
@@ -976,7 +975,7 @@ TEST(AllArgsTest, WorksInWithClause) {
 
 class OptionalMatchersHelper {
  public:
-  OptionalMatchersHelper() = default;
+  OptionalMatchersHelper() {}
 
   MOCK_METHOD0(NoArgs, int());
 
@@ -1038,7 +1037,7 @@ class FloatingPointTest : public testing::Test {
             Floating::ReinterpretBits(infinity_bits_ - max_ulps_)),
         further_from_infinity_(
             Floating::ReinterpretBits(infinity_bits_ - max_ulps_ - 1)),
-        max_(std::numeric_limits<RawType>::max()),
+        max_(Floating::Max()),
         nan1_(Floating::ReinterpretBits(Floating::kExponentBitMask | 1)),
         nan2_(Floating::ReinterpretBits(Floating::kExponentBitMask | 200)) {}
 
@@ -1513,4 +1512,6 @@ TEST(AnyOfTest, WorksOnMoveOnlyType) {
 }  // namespace gmock_matchers_test
 }  // namespace testing
 
-GTEST_DISABLE_MSC_WARNINGS_POP_()  // 4244 4100
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
