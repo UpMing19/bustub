@@ -31,6 +31,9 @@ auto LRUKNode::GetKNum() -> size_t {
   }
   return history_.front();
 }
+auto LRUKNode::GetKBackNum() -> size_t {
+  return history_.back();
+}
 void LRUKNode::PushTimeStampToList(size_t timestamp) {
   history_.push_back(timestamp);
   if (history_.size() > k_) {
@@ -44,6 +47,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   latch_.lock();
   current_timestamp_++;
   size_t ma = 0;
+  size_t mi = 1000000000;
   for (const auto &it : node_store_) {
     frame_id_t id = it.first;
     LRUKNode node = it.second;
@@ -61,6 +65,14 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
       *frame_id = id;
       ma = num;
       // std::cout<<"id"<<id<<std::endl;
+    }
+    else if(num==ma){
+      size_t num = node.GetKBackNum();
+      if(num < mi){
+         *frame_id = id;
+         mi = num;
+      }
+     
     }
   }
   if (ma != 0) {
