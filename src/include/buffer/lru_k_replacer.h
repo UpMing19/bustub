@@ -13,8 +13,8 @@
 #pragma once
 
 #include <limits>
-#include <map>
 #include <list>
+#include <map>
 #include <mutex>  // NOLINT
 #include <unordered_map>
 #include <vector>
@@ -37,14 +37,13 @@ class LRUKNode {
   bool is_evictable_{false};
 
  public:
-  LRUKNode()= default;
+  LRUKNode() = default;
   LRUKNode(size_t k, frame_id_t fid);
   ~LRUKNode() = default;
   void SetIsEvictable(bool f);
   auto GetIsEvictable() -> bool;
   auto GetKNum() -> size_t;
   void PushTimeStampToList(size_t timestamp);
-
 };
 
 /**
@@ -161,7 +160,7 @@ class LRUKReplacer {
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+  std::map<frame_id_t, LRUKNode> node_store_;
   size_t current_timestamp_{0};
   size_t curr_size_{0};
   size_t replacer_size_;

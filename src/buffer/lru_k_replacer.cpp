@@ -60,12 +60,14 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     if (num > ma) {
       *frame_id = id;
       ma = num;
-      //std::cout<<"id"<<id<<std::endl;
+      // std::cout<<"id"<<id<<std::endl;
     }
   }
+  if (ma != 0) {
+    node_store_.erase(*frame_id);
+    curr_size_--;
+  }
 
-  node_store_.erase(*frame_id);
-  curr_size_--;
   latch_.unlock();
   return ma != 0;
 }
@@ -79,8 +81,15 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, AccessType access_type) {
   }
   if (node_store_.count(frame_id) != 0U) {
   } else {
+    if (curr_size_ == replacer_size_) {
+      frame_id_t f;
+      Evict(&f);
+    }
+
     LRUKNode now = LRUKNode(k_, frame_id);
+    now.SetIsEvictable(true);
     node_store_[frame_id] = now;
+    curr_size_++;
   }
   LRUKNode &now = node_store_[frame_id];
   now.PushTimeStampToList(current_timestamp_);
