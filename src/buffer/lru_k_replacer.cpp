@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "buffer/lru_k_replacer.h"
+#include <climits>
 #include <cmath>
 #include "common/config.h"
 #include "common/exception.h"
@@ -59,11 +60,12 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     if (num > ma) {
       *frame_id = id;
       ma = num;
+      //std::cout<<"id"<<id<<std::endl;
     }
   }
 
   node_store_.erase(*frame_id);
-
+  curr_size_--;
   latch_.unlock();
   return ma != 0;
 }
@@ -75,13 +77,12 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, AccessType access_type) {
     latch_.unlock();
     throw Exception("In function RecordAccess ::: frame_id > replacer_size_");
   }
-  current_timestamp_++;
   if (node_store_.count(frame_id) != 0U) {
   } else {
     LRUKNode now = LRUKNode(k_, frame_id);
     node_store_[frame_id] = now;
   }
-  LRUKNode now = node_store_[frame_id];
+  LRUKNode &now = node_store_[frame_id];
   now.PushTimeStampToList(current_timestamp_);
   latch_.unlock();
 }
@@ -97,7 +98,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
     latch_.unlock();
     return;
   }
-  LRUKNode now = node_store_[frame_id];
+  LRUKNode &now = node_store_[frame_id];
   if (set_evictable && !now.GetIsEvictable()) {
     now.SetIsEvictable(set_evictable);
     curr_size_++;
@@ -119,6 +120,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
     latch_.unlock();
     throw Exception("In function Remove ::: frame_id  not isEvictable");
   }
+  curr_size_--;
   node_store_.erase(frame_id);
   latch_.unlock();
 }

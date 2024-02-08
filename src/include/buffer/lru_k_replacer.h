@@ -13,6 +13,7 @@
 #pragma once
 
 #include <limits>
+#include <map>
 #include <list>
 #include <mutex>  // NOLINT
 #include <unordered_map>
@@ -36,6 +37,7 @@ class LRUKNode {
   bool is_evictable_{false};
 
  public:
+  LRUKNode()= default;
   LRUKNode(size_t k, frame_id_t fid);
   ~LRUKNode() = default;
   void SetIsEvictable(bool f);
