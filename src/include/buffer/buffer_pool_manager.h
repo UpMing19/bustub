@@ -16,7 +16,7 @@
 #include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
-
+ 
 #include "buffer/lru_k_replacer.h"
 #include "common/config.h"
 #include "recovery/log_manager.h"
@@ -149,6 +149,7 @@ class BufferPoolManager {
    * @return false if the page could not be found in the page table, true otherwise
    */
   auto FlushPage(page_id_t page_id) -> bool;
+  auto InternalFlushPages(page_id_t page_id) -> bool;
 
   /**
    * TODO(P1): Add implementation
