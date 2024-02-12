@@ -21,15 +21,17 @@
 #include "storage/page/page.h"
 #include "storage/page/page_guard.h"
 
+#define debug(x) std::cout << #x << " : " << (x) << std::endl;
+
 namespace bustub {
 
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
                                      LogManager *log_manager)
     : pool_size_(pool_size), disk_manager_(disk_manager), log_manager_(log_manager) {
   // TODO(students): remove this line after you have implemented the buffer pool manager
-  throw NotImplementedException(
-      "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
-      "exception line in `buffer_pool_manager.cpp`.");
+  // throw NotImplementedException(
+  //     "BufferPoolManager is not implemented yet. If you have finished implementing BPM, please remove the throw "
+  //     "exception line in `buffer_pool_manager.cpp`.");
 
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
@@ -47,45 +49,51 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   std::unique_lock<std::mutex> l(latch_);
 
   if (!free_list_.empty()) {
+    debug(free_list_.size());
     auto fr = free_list_.front();
     free_list_.pop_front();
     *page_id = AllocatePage();
     page_table_[*page_id] = fr;
     pages_[fr].pin_count_++;
     pages_[fr].page_id_ = *page_id;
-    replacer_->SetEvictable(fr, false);
     replacer_->RecordAccess(fr);
+    replacer_->SetEvictable(fr, false);
     return &pages_[fr];
   }
-  frame_id_t fr;
+  frame_id_t fr = -1;
   bool res = replacer_->Evict(&fr);
-  if (!res) {
+  if (!res || fr == -1) {
     return nullptr;
   }
 
+  debug(free_list_.size());
+  debug(fr);
+  debug(res);
+
   if (pages_[fr].page_id_ != INVALID_PAGE_ID && pages_[fr].is_dirty_) {
     InternalFlushPages(pages_[fr].page_id_);
-    pages_[fr].ResetMemory();
-    page_table_.erase(pages_[fr].page_id_);
-    pages_[fr].page_id_ = INVALID_PAGE_ID;
-    pages_[fr].is_dirty_ = false;
-    pages_[fr].pin_count_ = 0;
   }
+  pages_[fr].ResetMemory();
+  pages_[fr].is_dirty_ = false;
+  pages_[fr].pin_count_ = 0;
+  page_table_.erase(pages_[fr].page_id_);
 
   *page_id = AllocatePage();
   page_table_[*page_id] = fr;
   pages_[fr].pin_count_++;
   pages_[fr].page_id_ = *page_id;
-  replacer_->SetEvictable(fr, false);
   replacer_->RecordAccess(fr);
+  replacer_->SetEvictable(fr, false);
   return &pages_[fr];
 }
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
   std::unique_lock<std::mutex> l(latch_);
+
   if (page_table_.find(page_id) == page_table_.end()) {
+    debug(page_id);
     frame_id_t fr;
-    if (free_list_.empty()) {
+    if (!free_list_.empty()) {
       fr = free_list_.front();
       free_list_.pop_front();
     } else {
@@ -93,21 +101,27 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
       if (!res) {
         return nullptr;
       }
+
+      debug(free_list_.size());
+      debug(fr);
+      debug(res);
     }
+
     if (pages_[fr].is_dirty_) {
       InternalFlushPages(pages_[fr].page_id_);
     }
-
+    page_table_.erase(pages_[fr].page_id_);
     pages_[fr].ResetMemory();
+    pages_[fr].page_id_ = page_id;
     pages_[fr].pin_count_++;
     pages_[fr].is_dirty_ = false;
-    page_table_.erase(pages_[fr].page_id_);
     page_table_[page_id] = fr;
     replacer_->RecordAccess(fr);
     replacer_->SetEvictable(fr, false);
     disk_manager_->ReadPage(page_id, pages_[fr].data_);
     return &pages_[page_table_[page_id]];
   }
+  debug(page_table_[page_id]);
   replacer_->RecordAccess(page_table_[page_id]);
   replacer_->SetEvictable(page_table_[page_id], false);
   pages_[page_table_[page_id]].pin_count_++;

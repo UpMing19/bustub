@@ -43,6 +43,7 @@ class LRUKNode {
   void SetIsEvictable(bool f);
   auto GetIsEvictable() -> bool;
   auto GetKNum() -> size_t;
+  auto GetFrameId() -> frame_id_t { return fid_; };
   auto GetKBackNum() -> size_t;
   void PushTimeStampToList(size_t timestamp);
 };
