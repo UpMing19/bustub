@@ -44,8 +44,8 @@ TEST(PageGuardTest, SampleTest) {
 
   EXPECT_EQ(0, page0->GetPinCount());
 
-  // Shutdown the disk manager and remove the temporary file we created.
-  disk_manager->ShutDown();
+  // // Shutdown the disk manager and remove the temporary file we created.
+  // disk_manager->ShutDown();
 }
 
 // 参考https://www.cnblogs.com/1v7w/p/17620338.html
@@ -217,7 +217,7 @@ TEST(PageGuardTest, MoveCopyTest) {
   disk_manager->ShutDown();
 }
 
-TEST(PageGuardTest, DISABLED_MutliThreadTest) {
+TEST(PageGuardTest, MutliThreadTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 5;
   const size_t k = 2;
@@ -282,7 +282,7 @@ TEST(PageGuardTest, DISABLED_MutliThreadTest) {
   disk_manager->ShutDown();
 }
 
-TEST(PageGuardTest, DISABLED_MutliThreadRandPageTest) {
+TEST(PageGuardTest, MutliThreadRandPageTest) {
   const std::string db_name = "test.db";
   const size_t buffer_pool_size = 5;
   const size_t k = 2;
