@@ -10,6 +10,7 @@ BasicPageGuard::BasicPageGuard(BasicPageGuard &&that) noexcept {
   this->bpm_ = that.bpm_;
   that.bpm_ = nullptr;
   is_dirty_ = that.is_dirty_;
+  that.is_dirty_ = false;
 }
 
 void BasicPageGuard::Drop() {
@@ -18,6 +19,7 @@ void BasicPageGuard::Drop() {
   }
   bpm_ = nullptr;
   page_ = nullptr;
+  is_dirty_ = false;
 }
 
 auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard & {
@@ -30,6 +32,7 @@ auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard
   this->bpm_ = that.bpm_;
   that.bpm_ = nullptr;
   is_dirty_ = that.is_dirty_;
+  that.is_dirty_ = false;
   return *this;
 }
 

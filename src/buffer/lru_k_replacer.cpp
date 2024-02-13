@@ -21,9 +21,9 @@ namespace bustub {
 LRUKNode::LRUKNode(size_t k, frame_id_t fid) : k_(k), fid_(fid) {
   history_.clear();
   is_evictable_ = false;
-};
+}
 
-void LRUKNode::SetIsEvictable(bool f) { is_evictable_ = f; };
+void LRUKNode::SetIsEvictable(bool f) { is_evictable_ = f; }
 auto LRUKNode::GetIsEvictable() -> bool { return is_evictable_; }
 auto LRUKNode::GetKNum() -> size_t {
   if (history_.size() < k_) {
@@ -62,7 +62,7 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     if (num > ma) {
       *frame_id = id;
       ma = num;
-      mi = fmin(mi,node.GetKBackNum());
+      mi = fmin(mi, node.GetKBackNum());
       // std::cout<<"id"<<id<<std::endl;
     } else if (num == ma) {
       size_t numm = node.GetKBackNum();

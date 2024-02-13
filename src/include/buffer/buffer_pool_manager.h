@@ -16,7 +16,7 @@
 #include <memory>
 #include <mutex>  // NOLINT
 #include <unordered_map>
- 
+
 #include "buffer/lru_k_replacer.h"
 #include "common/config.h"
 #include "recovery/log_manager.h"
@@ -207,7 +207,7 @@ class BufferPoolManager {
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
   }
- 
+
   // TODO(student): You may add additional private members and helper functions
 };
 }  // namespace bustub

@@ -13,7 +13,7 @@
 
 #include "buffer/buffer_pool_manager.h"
 #include <cstddef>
-#include <mutex>
+#include <mutex>  // NOLINT
 
 #include "common/config.h"
 #include "common/exception.h"
@@ -49,7 +49,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   std::unique_lock<std::mutex> l(latch_);
 
   if (!free_list_.empty()) {
-    debug(free_list_.size());
+    // debug(free_list_.size());
     auto fr = free_list_.front();
     free_list_.pop_front();
     *page_id = AllocatePage();
@@ -66,9 +66,9 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
     return nullptr;
   }
 
-  debug(free_list_.size());
-  debug(fr);
-  debug(res);
+  // debug(free_list_.size());
+  // debug(fr);
+  // debug(res);
 
   if (pages_[fr].page_id_ != INVALID_PAGE_ID && pages_[fr].is_dirty_) {
     InternalFlushPages(pages_[fr].page_id_);
@@ -91,7 +91,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
   std::unique_lock<std::mutex> l(latch_);
 
   if (page_table_.find(page_id) == page_table_.end()) {
-    debug(page_id);
+    // debug(page_id);
     frame_id_t fr;
     if (!free_list_.empty()) {
       fr = free_list_.front();
@@ -102,9 +102,9 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
         return nullptr;
       }
 
-      debug(free_list_.size());
-      debug(fr);
-      debug(res);
+      // debug(free_list_.size());
+      // debug(fr);
+      // debug(res);
     }
 
     if (pages_[fr].is_dirty_) {
@@ -121,7 +121,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     disk_manager_->ReadPage(page_id, pages_[fr].data_);
     return &pages_[page_table_[page_id]];
   }
-  debug(page_table_[page_id]);
+  // debug(page_table_[page_id]);
   replacer_->RecordAccess(page_table_[page_id]);
   replacer_->SetEvictable(page_table_[page_id], false);
   pages_[page_table_[page_id]].pin_count_++;
@@ -139,7 +139,8 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
     if (pages_[frame_id].pin_count_ == 0) {
       replacer_->SetEvictable(frame_id, true);
     }
-    pages_[frame_id].is_dirty_ = is_dirty;
+    pages_[frame_id].is_dirty_ = is_dirty || pages_[frame_id].is_dirty_;
+
     return true;
   }
   return false;
@@ -186,7 +187,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
     page_table_.erase(page_id);
     return true;
   }
-  return false;
+  return true;
 }
 
 auto BufferPoolManager::AllocatePage() -> page_id_t { return next_page_id_++; }
