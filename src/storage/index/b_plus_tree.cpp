@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <sstream>
 #include <string>
 
@@ -35,12 +36,15 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool { return true; }
  * This method is used for point query
  * @return : true means key exists
  */
+
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   // Declaration of context instance.
   Context ctx;
   (void)ctx;
-  return false;
+  bool found = false;
+  
+  return found;
 }
 
 /*****************************************************************************
