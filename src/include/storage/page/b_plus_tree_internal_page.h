@@ -13,6 +13,7 @@
 #include <queue>
 #include <string>
 
+#include "common/config.h"
 #include "storage/page/b_plus_tree_page.h"
 
 namespace bustub {
@@ -71,8 +72,12 @@ class BPlusTreeInternalPage : public BPlusTreePage {
    * @param index the index
    * @return the value at the index
    */
-  auto ValueAt(int index) const -> ValueType;
 
+  auto ValueAt(int index) const -> ValueType;
+  auto SetValueAt(int index, ValueType value);
+  auto SetKeyValueAt(int index, KeyType key, ValueType value);
+
+  auto FindValue(const KeyType &key,ValueType &value, const KeyComparator &comparator) -> bool;
   /**
    * @brief For test only, return a string representing all keys in
    * this internal page, formatted as "(key1,key2,key3,...)"

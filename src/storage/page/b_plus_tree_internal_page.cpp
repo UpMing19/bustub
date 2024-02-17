@@ -9,7 +9,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include <algorithm>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 
 #include "common/exception.h"
@@ -53,6 +55,35 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   ValueType v;
   v = array_[index].second;
   return v;
+}
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, ValueType value) { array_[index].second = value; }
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyValueAt(int index, KeyType key, ValueType value) {
+  array_[index].first = key;
+  array_[index].second = value;
+}
+
+INDEX_TEMPLATE_ARGUMENTS
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator)
+    -> bool {
+  int l = 1;
+  int r = GetSize() - 1;
+  int ans_index = -1;
+  value = ValueAt(r);
+  while (l <= r) {
+    int mid = (l + r) >> 1;
+    if (comparator(KeyAt(mid), key) < 0) {
+      l = mid + 1;
+    } else if (comparator(KeyAt(mid), key) > 0) {
+      r = mid - 1;
+    } else {
+      value = ValueAt(mid);
+      ans_index = mid;
+      break;
+    }
+  }
+  return ans_index != -1;
 }
 
 // valuetype for internalNode should be page id_t
