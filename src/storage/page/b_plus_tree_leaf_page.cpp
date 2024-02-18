@@ -56,6 +56,10 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   key = array_[index].first;
   return key;
 }
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { array_[index].first = key; }
+INDEX_TEMPLATE_ARGUMENTS
+void B_PLUS_TREE_LEAF_PAGE_TYPE::SetValueAt(int index, const ValueType &value) { array_[index].second = value; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
@@ -66,24 +70,22 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator)
-    -> bool {
+    -> int {
   int l = 0;
   int r = GetSize() - 1;
   int ans_index = -1;
- 
+
   while (l <= r) {
     int mid = (l + r) >> 1;
     if (comparator(KeyAt(mid), key) < 0) {
       l = mid + 1;
-    } else if (comparator(KeyAt(mid), key) > 0) {
+    } else if (comparator(KeyAt(mid), key) >= 0) {
       r = mid - 1;
-    } else {
       ans_index = mid;
       value = ValueAt(mid);
-      break;
     }
   }
-  return ans_index != -1;
+  return ans_index;
 }
 
 template class BPlusTreeLeafPage<GenericKey<4>, RID, GenericComparator<4>>;
