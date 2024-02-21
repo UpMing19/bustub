@@ -18,13 +18,13 @@
 #include <shared_mutex>
 #include <string>
 #include <vector>
-
 #include "common/config.h"
 #include "common/macros.h"
 #include "concurrency/transaction.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/b_plus_tree_header_page.h"
 #include "storage/page/b_plus_tree_internal_page.h"
+
 #include "storage/page/b_plus_tree_leaf_page.h"
 #include "storage/page/page_guard.h"
 
@@ -75,10 +75,13 @@ class BPlusTree {
   // Insert a key-value pair into this B+ tree.
   auto Insert(const KeyType &key, const ValueType &value, Transaction *txn = nullptr) -> bool;
   // Insert a key-value pair into this B+ tree.
-  auto InsertLeafNode(LeafPage *node,const KeyType &key, const ValueType &value, Context &ctx, Transaction *txn = nullptr) -> void;
-  auto SplitLeafNode(LeafPage *node,const KeyType &key,const ValueType &value,Context &ctx, Transaction *txn = nullptr) ->void;
-  auto InsertParent(const KeyType &key, const ValueType &value,Context &ctx, Transaction *txn = nullptr)->void;
-  auto SplitInternalNode(InternalPage *node, const KeyType &key, const ValueType &value, Context &ctx, Transaction *txn) -> void;
+  auto InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
+                      Transaction *txn = nullptr) -> void;
+  auto SplitLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
+                     Transaction *txn = nullptr) -> void;
+  auto InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn = nullptr) -> void;
+  auto SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn)
+      -> void;
   // Remove a key and its value from this B+ tree.
   void Remove(const KeyType &key, Transaction *txn);
 

@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <optional>
 #include <sstream>
 #include <string>
 
@@ -199,17 +200,72 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   page_id_t nxt = node->GetNextPageId();
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
-  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0), ctx, txn);
-//  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
+  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
+  //  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, const ValueType &value, Context &ctx,
+auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value, Context &ctx,
                                        Transaction *txn) -> void {
-  return;
+  page_id_t pid;
+  BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
+  auto new_internal_node = guard.AsMut<InternalPage>();
+  new_internal_node->Init(internal_max_size_);
+  new_internal_node->IncreaseSize(1);  //第一个键为空
+  int mid = node->GetMinSize();
+  int num = 0;
+  for (int i = mid, j = 1; i < node->GetSize(); i++) {
+    new_internal_node->SetKeyAt(j, node->KeyAt(i));
+    new_internal_node->SetValueAt(j, node->ValueAt(i));
+    num++;
+  }
+  node->IncreaseSize(-num);
+  new_internal_node->IncreaseSize(num);
+
+  auto internal_node = node;
+  if (comparator_(new_internal_node->KeyAt(1), key) < 0) {
+    internal_node = new_internal_node;
+  }
+  int index = -1;
+  for (int i = 1; i < internal_node->GetSize(); i++) {
+    if (comparator_(key, internal_node->KeyAt(i)) > 0) {
+      index = i;
+      break;
+    }
+  }
+
+  index++;  //插入位置
+  internal_node->IncreaseSize(1);
+  for (int i = internal_node->GetSize() - 1; i > index; i--) {
+    internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
+    internal_node->SetValueAt(i, internal_node->ValueAt(i - 1));
+  }
+  internal_node->SetKeyAt(index, key);
+  internal_node->SetValueAt(index, value);
+
+  InsertParent(internal_node->KeyAt(1), pid, ctx);
 }
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const ValueType &value, Context &ctx, Transaction *txn) -> void {
+auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
+  if (ctx.write_set_.empty()) {
+   WritePageGuard head_page_guard =  bpm_->FetchPageWrite(header_page_id_);
+   auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
+  
+   
+   BasicPageGuard guard =  bpm_->NewPageGuarded(&head_page->root_page_id_);
+   auto new_root_node = guard.AsMut<InternalPage>();
+
+   ctx.root_page_id_ = head_page->root_page_id_;
+   
+   new_root_node->Init(internal_max_size_);
+   new_root_node->IncreaseSize(1);
+   new_root_node->IncreaseSize(1);
+   new_root_node->SetKeyAt(1,key);
+   new_root_node->SetValueAt(1,value);
+
+   return ;
+  }
+
   WritePageGuard guard = std::move(ctx.write_set_.back());
   ctx.write_set_.pop_back();
   auto internal_node = guard.AsMut<InternalPage>();
@@ -223,7 +279,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const ValueType &value, Co
         break;
       }
     }
-    
+
     index++;  //插入位置
     internal_node->IncreaseSize(1);
     for (int i = internal_node->GetSize() - 1; i > index; i--) {
@@ -232,8 +288,6 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const ValueType &value, Co
     }
     internal_node->SetKeyAt(index, key);
     internal_node->SetValueAt(index, value);
-
-
   }
 }
 /*****************************************************************************

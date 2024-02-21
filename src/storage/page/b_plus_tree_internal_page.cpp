@@ -57,7 +57,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   return v;
 }
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, ValueType value) { array_[index].second = value; }
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, ValueType value)->void { array_[index].second = value; }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyValueAt(int index, KeyType key, ValueType value) {
   array_[index].first = key;

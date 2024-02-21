@@ -74,7 +74,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
    */
 
   auto ValueAt(int index) const -> ValueType;
-  auto SetValueAt(int index, ValueType value);
+  auto SetValueAt(int index, ValueType value) -> void ;
   auto SetKeyValueAt(int index, KeyType key, ValueType value);
 
   auto FindValue(const KeyType &key,ValueType &value, const KeyComparator &comparator) -> int;
