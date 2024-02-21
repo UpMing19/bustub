@@ -2,6 +2,7 @@
 #include <optional>
 #include <sstream>
 #include <string>
+#include <utility>
 
 #include "common/config.h"
 #include "common/exception.h"
@@ -12,6 +13,8 @@
 #include "storage/page/b_plus_tree_internal_page.h"
 #include "storage/page/b_plus_tree_page.h"
 #include "storage/page/page_guard.h"
+
+#define debug(x) std::cout << #x << " : " << x << std::endl;
 
 namespace bustub {
 
@@ -200,6 +203,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   page_id_t nxt = node->GetNextPageId();
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
+
   InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
   //  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
 }
@@ -248,22 +252,23 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
   if (ctx.write_set_.empty()) {
-   WritePageGuard head_page_guard =  bpm_->FetchPageWrite(header_page_id_);
-   auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
-  
-   
-   BasicPageGuard guard =  bpm_->NewPageGuarded(&head_page->root_page_id_);
-   auto new_root_node = guard.AsMut<InternalPage>();
+    ctx.header_page_= std::nullopt;
+    WritePageGuard head_page_guard = bpm_->FetchPageWrite(header_page_id_);
+    auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
 
-   ctx.root_page_id_ = head_page->root_page_id_;
-   
-   new_root_node->Init(internal_max_size_);
-   new_root_node->IncreaseSize(1);
-   new_root_node->IncreaseSize(1);
-   new_root_node->SetKeyAt(1,key);
-   new_root_node->SetValueAt(1,value);
+    BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
+    auto new_root_node = guard.AsMut<InternalPage>();
 
-   return ;
+    ctx.header_page_ = std::move(head_page_guard);
+    ctx.root_page_id_ = head_page->root_page_id_;
+
+    new_root_node->Init(internal_max_size_);
+    new_root_node->IncreaseSize(1);
+    new_root_node->IncreaseSize(1);
+    new_root_node->SetKeyAt(1, key);
+    new_root_node->SetValueAt(1, value);
+
+    return;
   }
 
   WritePageGuard guard = std::move(ctx.write_set_.back());
