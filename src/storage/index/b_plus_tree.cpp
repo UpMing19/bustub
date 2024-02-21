@@ -106,6 +106,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     leaf_node->Init(leaf_max_size_);
     guard.Drop();
   }
+  ctx.root_page_id_ = head_page->root_page_id_;
   //存在该键
   std::vector<ValueType> result;
   if (GetValue(key, &result)) {
@@ -114,20 +115,27 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   WritePageGuard guard = bpm_->FetchPageWrite(head_page->root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
-  ctx.write_set_.push_back(std::move(guard));
+
+
 
   while (!tree_node->IsLeafPage()) {
+
     auto internal_node = guard.AsMut<InternalPage>();
+
     page_id_t value;
     internal_node->FindValue(key, value, comparator_);
-
+    ctx.write_set_.push_back(std::move(guard));
     guard = bpm_->FetchPageWrite(value);
     tree_node = guard.AsMut<BPlusTreePage>();
-    ctx.write_set_.push_back(std::move(guard));
+
   }
 
-  guard = std::move(ctx.write_set_.back());
-  ctx.write_set_.pop_back();
+//  if(!ctx.write_set_.empty()){
+//      guard = std::move(ctx.write_set_.back());
+//      ctx.write_set_.pop_back();
+//  }
+
+
   auto leaf_node = guard.AsMut<LeafPage>();
 
   InsertLeafNode(leaf_node, key, value, ctx, txn);
@@ -152,7 +160,9 @@ auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const Va
   } else {
     ValueType v;
     int index = node->FindValue(key, v, comparator_);
-    index++;  //插入位置
+    if(index==-1) {
+        index = node->GetSize();
+    }
     node->IncreaseSize(1);
     for (int i = node->GetSize() - 1; i > index; i--) {
       node->SetKeyAt(i, node->KeyAt(i - 1));
@@ -204,7 +214,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
 
-  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
+  InsertParent(new_leaf_node->KeyAt(0), pid, ctx, txn);
   //  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
 }
 
@@ -252,6 +262,7 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
   if (ctx.write_set_.empty()) {
+    page_id_t  old_root_page_id = ctx.root_page_id_;
     ctx.header_page_= std::nullopt;
     WritePageGuard head_page_guard = bpm_->FetchPageWrite(header_page_id_);
     auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
@@ -267,6 +278,9 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     new_root_node->IncreaseSize(1);
     new_root_node->SetKeyAt(1, key);
     new_root_node->SetValueAt(1, value);
+
+    new_root_node->SetKeyAt(0, KeyType{});
+    new_root_node->SetValueAt(0, old_root_page_id);
 
     return;
   }
