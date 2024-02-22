@@ -66,9 +66,9 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     auto internal_node = guard.AsMut<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
     guard = bpm_->FetchPageBasic(next_page_id);
-    if (guard.PageId() == INVALID_PAGE_ID) {
-      return false;
-    }
+//    if (guard.PageId() == INVALID_PAGE_ID) {
+//      return false;
+//    }
     tree_page = guard.AsMut<BPlusTreePage>();
   }
   auto leaf_node = guard.AsMut<LeafPage>();
@@ -77,7 +77,12 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   if (index == -1) {
     return false;
   }
-  return (comparator_(leaf_node->KeyAt(index), key) == 0);
+  if( (comparator_(leaf_node->KeyAt(index), key) == 0)){
+      value = leaf_node->ValueAt(index);
+      result->push_back(value);
+      return true;
+  }
+  return false;
 }
 
 /*****************************************************************************
@@ -261,6 +266,7 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
     page_id_t  pid ;
     BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
     auto new_internal_node = guard.template AsMut<InternalPage>();
+    new_internal_node->Init(internal_max_size_);
     new_internal_node->IncreaseSize(1);
     int num =0 ;
     for(int i = mid ,j = 1 ;i < node->GetSize();i++,j++){
