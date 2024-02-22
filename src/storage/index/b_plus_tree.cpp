@@ -361,6 +361,104 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // Declaration of context instance.
   Context ctx;
   (void)ctx;
+
+  if (IsEmpty()) {
+    return;
+  }
+
+  // DeleteLeafNodeKey();
+}
+INDEX_TEMPLATE_ARGUMENTS
+void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
+                                       Transaction *txn) {
+  if (node->GetSize() - 1 >= node->GetMinSize()) {
+    int index = -1;
+    ValueType v;
+    index = node->FindValue(key, v, comparator_);
+    for (int i = index; i < node->GetSize() - 1; i++) {
+      node->SetKeyAt(i, node->KeyAt(i + 1));
+      node->SetValueAt(i, node->ValueAt(i + 1));
+    }
+    node->IncreaseSize(-1);
+  } else {
+    WritePageGuard guard = std::move(ctx.write_set_.back());
+    ctx.write_set_.pop_back();
+    auto parent_node = guard.AsMut<InternalPage>();
+    // 1.拿到做左 右 兄弟
+    auto left_sibling_node = node;
+    auto right_sibling_node = node;
+    left_sibling_node = nullptr;
+    right_sibling_node = nullptr;
+
+    if (node->GetNextPageId() != INVALID_PAGE_ID) {
+      WritePageGuard guard = bpm_->FetchPageWrite(node->GetNextPageId());
+      right_sibling_node = guard.AsMut<LeafPage>();
+    }
+    page_id_t v;
+    int index = parent_node->FindValue(key, v, comparator_);
+    index--;
+    if (index >= 0) {
+      WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(index));
+      left_sibling_node = guard.AsMut<LeafPage>();
+    }
+    ctx.write_set_.push_back(std::move(guard));  //放回去 父亲节点
+    // 2.选择一个兄弟借一下  //谁多借谁
+    auto borrow_node = left_sibling_node;
+    bool borrow_left = true;
+    if (left_sibling_node == nullptr) {
+      borrow_node = right_sibling_node;
+      borrow_left = false;
+    }
+    if (left_sibling_node != nullptr && right_sibling_node != nullptr) {
+      if (right_sibling_node->GetSize() > left_sibling_node->GetSize()) {
+        borrow_node = right_sibling_node;
+        borrow_left = false;
+      }
+    }
+
+    if (borrow_left) {
+      // 3.如果可以成功街借到 （不触发合并）
+      if (borrow_node->GetSize() - 1 >= borrow_node->GetMinSize()) {
+        //先borrowNode中删除
+        KeyType borrow_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
+        ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
+        borrow_node->IncreaseSize(-1);
+        //再插入到node
+        InsertLeafNode(node, borrow_key, borrow_value, ctx);
+        //删除key
+        DeleteLeafNodeKey(node, key, value, ctx, txn);
+        //更新父亲node
+        index++;
+        parent_node->SetKeyAt(index, node->KeyAt(0));
+      }  // 4.触发合并
+      else {
+        
+      }
+
+    } else {
+      if (borrow_node->GetSize() - 1 >= borrow_node->GetMinSize()) {
+        //先borrowNode中删除
+        KeyType borrow_key = borrow_node->KeyAt(0);
+        ValueType borrow_value = borrow_node->ValueAt(0);
+        for (int i = 1; i < borrow_node->GetSize(); i++) {
+          borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
+          borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
+        }
+        borrow_node->IncreaseSize(-1);
+        //再插入到node todo:因为这里是从右边借，可以O（1）加入
+        InsertLeafNode(node, borrow_key, borrow_value, ctx);
+        //删除key
+        DeleteLeafNodeKey(node, key, value, ctx, txn);
+        //更新父亲node
+        index++;
+        index++;
+        parent_node->SetKeyAt(index, borrow_node->KeyAt(0));
+      } else  // 4.触发合并
+      {
+
+      }
+    }
+  }
 }
 
 /*****************************************************************************
