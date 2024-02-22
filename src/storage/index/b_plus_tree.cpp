@@ -380,8 +380,8 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const
       node->SetValueAt(i, node->ValueAt(i + 1));
     }
     node->IncreaseSize(-1);
-    //todo:父节点也要更新
-    
+    //todo:父节点也要更新 //递归更新路径上所有节点
+
   } else {
     WritePageGuard guard = std::move(ctx.write_set_.back());
     ctx.write_set_.pop_back();
