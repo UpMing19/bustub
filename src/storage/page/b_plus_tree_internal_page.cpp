@@ -69,7 +69,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::FindValue(const KeyType &key, ValueType &va
     -> int {
   int l = 1;
   int r = GetSize() - 1;
-  int ans_index = r ;
+  int ans_index = GetSize() ;
   value = ValueAt(r);
 
   while (l <= r) {

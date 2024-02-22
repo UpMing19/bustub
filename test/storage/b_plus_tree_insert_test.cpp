@@ -82,7 +82,7 @@ TEST(BPlusTreeTests, InsertTestwmy) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  std::vector<int64_t> keys = {1,2,3};
+  std::vector<int64_t> keys = {1,2,3,4,5};
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
