@@ -380,6 +380,8 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const
       node->SetValueAt(i, node->ValueAt(i + 1));
     }
     node->IncreaseSize(-1);
+    //todo:父节点也要更新
+    
   } else {
     WritePageGuard guard = std::move(ctx.write_set_.back());
     ctx.write_set_.pop_back();
@@ -427,12 +429,9 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const
         InsertLeafNode(node, borrow_key, borrow_value, ctx);
         //删除key
         DeleteLeafNodeKey(node, key, value, ctx, txn);
-        //更新父亲node
-        index++;
-        parent_node->SetKeyAt(index, node->KeyAt(0));
       }  // 4.触发合并
       else {
-        
+
       }
 
     } else {
@@ -449,10 +448,6 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const
         InsertLeafNode(node, borrow_key, borrow_value, ctx);
         //删除key
         DeleteLeafNodeKey(node, key, value, ctx, txn);
-        //更新父亲node
-        index++;
-        index++;
-        parent_node->SetKeyAt(index, borrow_node->KeyAt(0));
       } else  // 4.触发合并
       {
 
