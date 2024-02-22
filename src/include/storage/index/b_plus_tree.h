@@ -80,7 +80,7 @@ class BPlusTree {
   auto SplitLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
                      Transaction *txn = nullptr) -> void;
   auto InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn = nullptr) -> void;
-  auto SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value,Context &ctx, Transaction *txn)
+  auto SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn)
       -> void;
   // Remove a key and its value from this B+ tree.
   void Remove(const KeyType &key, Transaction *txn);

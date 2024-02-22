@@ -51,8 +51,6 @@ auto BPlusTreePage::IsInsertSafe() const -> bool {
   return GetSize() + 1 <= GetMaxSize();
 }
 
-auto BPlusTreePage::IsDeleteSafe() const -> bool {
-  return GetSize() -1 >= GetMinSize();
-}
+auto BPlusTreePage::IsDeleteSafe() const -> bool { return GetSize() - 1 >= GetMinSize(); }
 
 }  // namespace bustub

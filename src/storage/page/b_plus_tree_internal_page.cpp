@@ -57,7 +57,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   return v;
 }
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, ValueType value)->void { array_[index].second = value; }
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetValueAt(int index, ValueType value) -> void { array_[index].second = value; }
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyValueAt(int index, KeyType key, ValueType value) {
   array_[index].first = key;
@@ -69,18 +69,18 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::FindValue(const KeyType &key, ValueType &va
     -> int {
   int l = 1;
   int r = GetSize() - 1;
-  int ans_index = GetSize()-1;
+  int ans_index = GetSize() - 1;
   value = ValueAt(r);
 
   while (l <= r) {
     int mid = (l + r) >> 1;
-    if (comparator(KeyAt(mid), key) <=0) {
+    if (comparator(KeyAt(mid), key) <= 0) {
       l = mid + 1;
-    } else if (comparator(KeyAt(mid), key) >0) {
+    } else if (comparator(KeyAt(mid), key) > 0) {
       r = mid - 1;
-      ans_index = mid-1;
+      ans_index = mid - 1;
       value = ValueAt(mid - 1);
-    } 
+    }
   }
   return ans_index;
 }

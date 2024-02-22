@@ -14,7 +14,7 @@
 #include "storage/page/b_plus_tree_page.h"
 #include "storage/page/page_guard.h"
 
-#define debug(x) std::cout << #x << " : " << x << std::endl;
+#define debug(x) std::cout << #x << " : " << (x) << std::endl;
 
 namespace bustub {
 
@@ -66,9 +66,9 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     auto internal_node = guard.AsMut<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
     guard = bpm_->FetchPageBasic(next_page_id);
-//    if (guard.PageId() == INVALID_PAGE_ID) {
-//      return false;
-//    }
+    //    if (guard.PageId() == INVALID_PAGE_ID) {
+    //      return false;
+    //    }
     tree_page = guard.AsMut<BPlusTreePage>();
   }
   auto leaf_node = guard.AsMut<LeafPage>();
@@ -77,10 +77,10 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   if (index == -1) {
     return false;
   }
-  if( (comparator_(leaf_node->KeyAt(index), key) == 0)){
-      value = leaf_node->ValueAt(index);
-      result->push_back(value);
-      return true;
+  if ((comparator_(leaf_node->KeyAt(index), key) == 0)) {
+    value = leaf_node->ValueAt(index);
+    result->push_back(value);
+    return true;
   }
   return false;
 }
@@ -112,7 +112,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     guard.Drop();
   }
   ctx.root_page_id_ = head_page->root_page_id_;
-  //存在该键
+  // 存在该键
   std::vector<ValueType> result;
   if (GetValue(key, &result)) {
     return false;
@@ -121,10 +121,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   WritePageGuard guard = bpm_->FetchPageWrite(head_page->root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
 
-
-
   while (!tree_node->IsLeafPage()) {
-
     auto internal_node = guard.AsMut<InternalPage>();
 
     page_id_t value;
@@ -132,14 +129,12 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     ctx.write_set_.push_back(std::move(guard));
     guard = bpm_->FetchPageWrite(value);
     tree_node = guard.AsMut<BPlusTreePage>();
-
   }
 
-//  if(!ctx.write_set_.empty()){
-//      guard = std::move(ctx.write_set_.back());
-//      ctx.write_set_.pop_back();
-//  }
-
+  //  if(!ctx.write_set_.empty()){
+  //      guard = std::move(ctx.write_set_.back());
+  //      ctx.write_set_.pop_back();
+  //  }
 
   auto leaf_node = guard.AsMut<LeafPage>();
 
@@ -160,13 +155,13 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
                                     Transaction *txn) -> void {
   if (node->GetSize() + 1 == node->GetMaxSize()) {
-    //分裂
+    // 分裂
     SplitLeafNode(node, key, value, ctx, txn);
   } else {
     ValueType v;
     int index = node->FindValue(key, v, comparator_);
-    if(index==-1) {
-        index = node->GetSize();
+    if (index == -1) {
+      index = node->GetSize();
     }
     node->IncreaseSize(1);
     for (int i = node->GetSize() - 1; i > index; i--) {
@@ -186,7 +181,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   new_leaf_node->Init(leaf_max_size_);
   bool put_left = false;
 
-  for (int i = node->GetMinSize()-1; i < node->GetMinSize(); i++) {
+  for (int i = node->GetMinSize() - 1; i < node->GetMinSize(); i++) {
     if (comparator_(key, node->KeyAt(i)) < 0) {
       put_left = true;
       break;
@@ -225,90 +220,85 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value ,Context &ctx,
+auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, const page_id_t &value, Context &ctx,
                                        Transaction *txn) -> void {
+  // 1.找up_key
+  KeyType up_key{};
+  page_id_t up_key_value;
 
-    //1.找up_key
-    KeyType up_key{};
-    page_id_t up_key_value;
-
-    int mid = node->GetMinSize() - 1;
-    bool put_left = false;
-    if(comparator_(key,node->KeyAt(mid)) < 0 ) {
-        put_left = true;
-        up_key = node->KeyAt(mid);
-        up_key_value = node->ValueAt(mid);
+  int mid = node->GetMinSize() - 1;
+  bool put_left = false;
+  if (comparator_(key, node->KeyAt(mid)) < 0) {
+    put_left = true;
+    up_key = node->KeyAt(mid);
+    up_key_value = node->ValueAt(mid);
+  } else {
+    if (comparator_(key, node->KeyAt(mid + 1)) > 0) {
+      up_key = node->KeyAt(mid + 1);
+      up_key_value = node->ValueAt(mid + 1);
+    } else {
+      up_key = key;
+      up_key_value = value;
     }
-    else{
-        if(comparator_(key,node->KeyAt(mid+1)) >0 ){
-            up_key = node->KeyAt(mid+1);
-            up_key_value = node->ValueAt(mid+1);
-        }
-        else {
-            up_key = key;
-            up_key_value = value;
-        }
-        mid++;
+    mid++;
+  }
+
+  // 2.删除up_key
+
+  if (comparator_(up_key, key) != 0) {
+    for (int i = mid; i < node->GetSize() - 1; i++) {
+      node->SetKeyAt(i, node->KeyAt(i + 1));
+      node->SetValueAt(i, node->ValueAt(i + 1));
     }
+    node->IncreaseSize(-1);
+  }
 
-
-    //2.删除up_key
-
-    if(comparator_(up_key,key)!=0){
-        for(int i = mid ; i< node->GetSize()-1; i++){
-            node->SetKeyAt(i,node->KeyAt(i+1));
-            node->SetValueAt(i,node->ValueAt(i+1));
-        }
-        node->IncreaseSize(-1);
+  // 3.创建一个新node，并移动一半数据过去
+  page_id_t pid;
+  BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
+  auto new_internal_node = guard.template AsMut<InternalPage>();
+  new_internal_node->Init(internal_max_size_);
+  new_internal_node->IncreaseSize(1);
+  int num = 0;
+  for (int i = mid, j = 1; i < node->GetSize(); i++, j++) {
+    new_internal_node->SetKeyAt(j, node->KeyAt(i));
+    new_internal_node->SetValueAt(j, node->ValueAt(i));
+    num++;
+  }
+  new_internal_node->IncreaseSize(num);
+  node->IncreaseSize(-num);
+  // 4.插入key到 左边或者右边 或者不插 直接作为up_key传上去
+  if (comparator_(key, up_key) != 0) {
+    int index = -1;
+    auto internal_node = node;
+    if (!put_left) {
+      internal_node = new_internal_node;
     }
-
-    //3.创建一个新node，并移动一半数据过去
-    page_id_t  pid ;
-    BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
-    auto new_internal_node = guard.template AsMut<InternalPage>();
-    new_internal_node->Init(internal_max_size_);
-    new_internal_node->IncreaseSize(1);
-    int num =0 ;
-    for(int i = mid ,j = 1 ;i < node->GetSize();i++,j++){
-        new_internal_node->SetKeyAt(j,node->KeyAt(i));
-        new_internal_node->SetValueAt(j,node->ValueAt(i));
-        num++;
+    page_id_t v;
+    index = internal_node->FindValue(key, v, comparator_);
+    index++;
+    internal_node->IncreaseSize(1);
+    for (int i = internal_node->GetSize() - 1; i > index; i--) {
+      internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
+      internal_node->SetValueAt(i, internal_node->ValueAt(i - 1));
     }
-    new_internal_node->IncreaseSize(num);
-    node->IncreaseSize(-num);
-    //4.插入key到 左边或者右边 或者不插 直接作为up_key传上去
-    if(comparator_(key,up_key)!=0){
-        int index = -1;
-        auto internal_node = node;
-        if(!put_left){
-            internal_node = new_internal_node;
-        }
-        page_id_t v;
-        index = internal_node->FindValue(key,v,comparator_);
-        index++;
-        internal_node->IncreaseSize(1);
-        for (int i = internal_node->GetSize() - 1; i > index; i--) {
-            internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
-            internal_node->SetValueAt(i, internal_node->ValueAt(i - 1));
-        }
-        internal_node->SetKeyAt(index, key);
-        internal_node->SetValueAt(index, value);
+    internal_node->SetKeyAt(index, key);
+    internal_node->SetValueAt(index, value);
 
-        new_internal_node->SetKeyAt(0,KeyType{});
-        new_internal_node->SetValueAt(0,up_key_value);
-    }
-    else{
-        new_internal_node->SetKeyAt(0,KeyType{});
-        new_internal_node->SetValueAt(0,up_key_value);
-    }
+    new_internal_node->SetKeyAt(0, KeyType{});
+    new_internal_node->SetValueAt(0, up_key_value);
+  } else {
+    new_internal_node->SetKeyAt(0, KeyType{});
+    new_internal_node->SetValueAt(0, up_key_value);
+  }
 
-    InsertParent(up_key, pid, ctx);
+  InsertParent(up_key, pid, ctx);
 }
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
   if (ctx.write_set_.empty()) {
-    page_id_t  old_root_page_id = ctx.root_page_id_;
-    ctx.header_page_= std::nullopt;
+    page_id_t old_root_page_id = ctx.root_page_id_;
+    ctx.header_page_ = std::nullopt;
     WritePageGuard head_page_guard = bpm_->FetchPageWrite(header_page_id_);
     auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
 
@@ -343,10 +333,10 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
         break;
       }
     }
-    if(index==-1){
-        index = internal_node->GetSize();
+    if (index == -1) {
+      index = internal_node->GetSize();
     }
-   // index++;  //插入位置
+    // index++;  //插入位置
     internal_node->IncreaseSize(1);
     for (int i = internal_node->GetSize() - 1; i > index; i--) {
       internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));

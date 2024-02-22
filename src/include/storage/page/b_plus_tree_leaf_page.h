@@ -61,9 +61,7 @@ class BPlusTreeLeafPage : public BPlusTreePage {
   auto ValueAt(int index) const -> ValueType;
   void SetKeyAt(int index, const KeyType &key);
   void SetValueAt(int index, const ValueType &value);
-
-  auto FindValue(const KeyType &, ValueType &, const KeyComparator &) -> int;
-
+  auto FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator) -> int;
   /**
    * @brief for test only return a string representing all keys in
    * this leaf page formatted as "(key1,key2,key3,...)"
