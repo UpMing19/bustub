@@ -285,6 +285,7 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
         }
         page_id_t v;
         index = internal_node->FindValue(key,v,comparator_);
+        index++;
         internal_node->IncreaseSize(1);
         for (int i = internal_node->GetSize() - 1; i > index; i--) {
             internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
@@ -337,13 +338,15 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
   } else {
     int index = -1;
     for (int i = 1; i < internal_node->GetSize(); i++) {
-      if (comparator_(key, internal_node->KeyAt(i)) > 0) {
+      if (comparator_(key, internal_node->KeyAt(i)) < 0) {
         index = i;
         break;
       }
     }
-
-    index++;  //插入位置
+    if(index==-1){
+        index = internal_node->GetSize();
+    }
+   // index++;  //插入位置
     internal_node->IncreaseSize(1);
     for (int i = internal_node->GetSize() - 1; i > index; i--) {
       internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
