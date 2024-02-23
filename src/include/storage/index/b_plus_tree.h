@@ -87,6 +87,8 @@ class BPlusTree {
 
   void DeleteLeafNodeKey(LeafPage *node,page_id_t this_page_id, const KeyType &key, const ValueType &value, std::map<page_id_t, int> *index_mp,
                          Context &ctx, Transaction *txn = nullptr);
+  void DeleteInternalNodeKey(InternalPage *node,page_id_t this_page_id, int delete_index, std::map<page_id_t, int> *index_mp,
+                           Context &ctx, Transaction *txn = nullptr);
   // Return the value associated with a given key
   auto GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn = nullptr) -> bool;
 

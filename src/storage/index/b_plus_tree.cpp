@@ -403,6 +403,28 @@ namespace bustub {
     void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, const KeyType &key,
                                            const ValueType &value, std::map<page_id_t, int> *index_mp, Context &ctx,
                                            Transaction *txn) {
+        if (ctx.write_set_.empty()) {
+            if (node->GetSize() == 0) {
+                return;
+            }
+            if (node->GetSize() == 1) {
+                auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
+                head_page->root_page_id_ = INVALID_PAGE_ID;
+                ctx.root_page_id_ = INVALID_PAGE_ID;
+                node->IncreaseSize(-1);
+                return;
+            }
+            int index = -1;
+            ValueType v;
+            index = node->FindValue(key, v, comparator_);
+            for (int i = index; i < node->GetSize() - 1; i++) {
+                node->SetKeyAt(i, node->KeyAt(i + 1));
+                node->SetValueAt(i, node->ValueAt(i + 1));
+            }
+            node->IncreaseSize(-1);
+            return;
+        }
+
         if (node->GetSize() - 1 >= node->GetMinSize()) {
             int index = -1;
             ValueType v;
@@ -415,33 +437,32 @@ namespace bustub {
             return;
         }
 
-        if (ctx.write_set_.empty()) {  //如果是根节点且不能安全删除
-            return;
-        }
 
         // 2.两侧节点可以安全删除一个 就借一个
         WritePageGuard guard = std::move(ctx.write_set_.back());
+        int parent_page_id = guard.PageId();
         ctx.write_set_.pop_back();
         auto parent_node = guard.AsMut<InternalPage>();
         ctx.write_set_.push_back(std::move(guard));//这里用完马上放回去
 
-        int paretn_index = (*index_mp)[this_page_id];
+        int parent_index = (*index_mp)[this_page_id];
 
         bool borrow_left = true;
         auto borrow_node = node;
         borrow_node = nullptr;
-        if (paretn_index == 0) {
-            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index + 1));
+
+        if (parent_index == 0) {
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
             borrow_node = guard.AsMut<LeafPage>();
             borrow_left = false;
-        } else if (paretn_index == parent_node->GetSize() - 1) {
-            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index - 1));
+        } else if (parent_index == parent_node->GetSize() - 1) {
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
             borrow_node = guard.AsMut<LeafPage>();
             borrow_left = true;
         } else {
-            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index - 1));
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
             auto node_left = borrow_node = guard.AsMut<LeafPage>();
-            guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index + 1));
+            guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
             auto node_right = borrow_node = guard.AsMut<LeafPage>();
             if (node_left->GetSize() >= node_right->GetSize()) {
                 borrow_node = node_left;
@@ -454,6 +475,31 @@ namespace bustub {
 
         if (borrow_node->GetSize() - 1 < borrow_node->GetMinSize()) {
             //合并
+            int delete_up_index = -1;
+            delete_up_index = parent_index + 1;
+            if (borrow_left) {
+                delete_up_index = parent_index;
+                auto temp = node;
+                node = borrow_node;
+                borrow_node = temp;
+            } else {
+                delete_up_index = parent_index + 1;
+            }
+
+            int next_page_id = borrow_node->GetNextPageId();
+            int num = 0;
+
+            for (int i = node->GetSize(), j = 0; j < borrow_node->GetSize(); j++, i++) {
+                node->SetKeyAt(i, borrow_node->KeyAt(j));
+                node->SetValueAt(i, borrow_node->ValueAt(j));
+                num++;
+            }
+
+            node->SetNextPageId(next_page_id);
+            node->IncreaseSize(num);
+
+            ctx.write_set_.pop_back();
+            DeleteInternalNodeKey(parent_node, parent_page_id, delete_up_index, index_mp, ctx, txn);
 
             return;
         }
@@ -463,6 +509,7 @@ namespace bustub {
             ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
             borrow_node->IncreaseSize(-1);
             InsertLeafNode(node, borrow_key, borrow_value, ctx);
+            parent_node->SetKeyAt(parent_index, node->KeyAt(0));
             DeleteLeafNodeKey(node, this_page_id, key, value, index_mp, ctx);
         } else {
             KeyType borrow_key = borrow_node->KeyAt(0);
@@ -475,11 +522,99 @@ namespace bustub {
             node->SetKeyAt(node->GetSize(), borrow_key);
             node->SetValueAt(node->GetSize(), borrow_value);
             node->IncreaseSize(1);
+            parent_node->SetKeyAt(parent_index + 1, borrow_node->KeyAt(0));
             DeleteLeafNodeKey(node, this_page_id, key, value, index_mp, ctx);
         }
     }
 
-// DeleteInternalNodeKey()
+    INDEX_TEMPLATE_ARGUMENTS
+    void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t this_page_id, int delete_index,
+                                               std::map<page_id_t, int> *index_mp, bustub::Context &ctx,
+                                               bustub::Transaction *txn) {
+
+        if (node->GetSize() - 1 >= node->GetMinSize()) {
+            for (int i = delete_index; i < node->GetSize() - 1; i++) {
+                node->SetKeyAt(i, node->KeyAt(i + 1));
+                node->SetValueAt(i, node->ValueAt(i + 1));
+            }
+            node->IncreaseSize(-1);
+            return;
+        }
+
+        if (ctx.write_set_.empty()) {
+            //这里减少树的高度？
+            return;
+        }
+
+        // 2.两侧节点可以安全删除一个 就借一个
+        WritePageGuard guard = std::move(ctx.write_set_.back());
+        int parent_page_id = guard.PageId();
+        ctx.write_set_.pop_back();
+        auto parent_node = guard.AsMut<InternalPage>();
+        ctx.write_set_.push_back(std::move(guard));//这里用完马上放回去
+
+        int parent_index = (*index_mp)[this_page_id];
+
+        bool borrow_left = true;
+        auto borrow_node = node;
+        borrow_node = nullptr;
+
+        if (parent_index == 0) {
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+            borrow_node = guard.AsMut<InternalPage>();
+            borrow_left = false;
+        } else if (parent_index == parent_node->GetSize() - 1) {
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+            borrow_node = guard.AsMut<InternalPage>();
+            borrow_left = true;
+        } else {
+            WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+            auto node_left = borrow_node = guard.AsMut<InternalPage>();
+            guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+            auto node_right = borrow_node = guard.AsMut<InternalPage>();
+            if (node_left->GetSize() >= node_right->GetSize()) {
+                borrow_node = node_left;
+                borrow_left = true;
+            } else {
+                borrow_node = node_right;
+                borrow_left = false;
+            }
+        }
+
+
+        if (borrow_node->GetSize() - 1 >= borrow_node->GetMinSize()) {
+
+            //借一个删除
+
+            if (borrow_left) {
+
+
+
+            } else {
+                KeyType up_key = borrow_node->KeyAt(1);;
+                KeyType down_key = parent_node->KeyAt(parent_index + 1);
+                page_id_t down_value = borrow_node->ValueAt(1);
+                for (int i = 2; i < borrow_node->GetSize(); i++) {
+                    borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
+                    borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
+                }
+                borrow_node->IncreaseSize(-1);
+                node->SetKeyAt(node->GetSize(), down_key);
+                node->SetValueAt(node->GetSize(), down_value);
+                node->IncreaseSize(1);
+
+                parent_node->SetKeyAt(parent_index + 1, up_key);
+
+            }
+
+            return;
+        }
+
+        //内部节点的合并
+
+
+
+    }
 
 /*****************************************************************************
  * INDEX ITERATOR
