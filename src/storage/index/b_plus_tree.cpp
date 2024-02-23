@@ -366,10 +366,38 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     return;
   }
 
-  // DeleteLeafNodeKey();
+  std::map<page_id_t, int> index_mp;
+
+  WritePageGuard guard = bpm_->FetchPageWrite(GetRootPageId());
+  auto tree_node = guard.AsMut<BPlusTreePage>();
+
+  while (!tree_node->IsLeafPage()) {
+    auto internal_node = guard.AsMut<InternalPage>();
+    page_id_t value;
+
+    int index = internal_node->FindValue(key, value, comparator_);
+    index_mp[internal_node->ValueAt(index)] = index;
+    ctx.write_set_.push_back(std::move(guard));
+    guard = bpm_->FetchPageWrite(value);
+    tree_node = guard.AsMut<BPlusTreePage>();
+  }
+  auto leaf_node = guard.AsMut<LeafPage>();
+  page_id_t this_page_id = guard.PageId();
+  ValueType value;
+  int index = leaf_node->FindValue(key, value, comparator_);
+  if (index == -1) {
+    return;
+  }
+  if ((comparator_(leaf_node->KeyAt(index), key) == 0)) {
+    value = leaf_node->ValueAt(index);
+  } else {
+    return;
+  }
+  DeleteLeafNodeKey(leaf_node, this_page_id, key, value, &index_mp, ctx, txn);
 }
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
+void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, const KeyType &key,
+                                       const ValueType &value, std::map<page_id_t, int> *index_mp, Context &ctx,
                                        Transaction *txn) {
   if (node->GetSize() - 1 >= node->GetMinSize()) {
     int index = -1;
@@ -379,83 +407,83 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, const KeyType &key, const
       node->SetKeyAt(i, node->KeyAt(i + 1));
       node->SetValueAt(i, node->ValueAt(i + 1));
     }
+    if (index == 0) {
+      int paretn_index = (*index_mp)[this_page_id];
+      WritePageGuard guard = std::move(ctx.write_set_.back());
+      ctx.write_set_.pop_back();
+      auto parent_node = guard.AsMut<InternalPage>();
+      ctx.write_set_.push_back(std::move(guard)); //这里用完马上放回去
+      parent_node->SetKeyAt(paretn_index,node->KeyAt(0));
+    }
     node->IncreaseSize(-1);
-    // todo:父节点也要更新 //递归更新路径上所有节点
+    return;
+  }
 
+  if (ctx.write_set_.empty()) {  //如果是根节点且不能安全删除
+    return;
+  }
+
+  // 2.两侧节点可以安全删除一个 就借一个
+  WritePageGuard guard = std::move(ctx.write_set_.back());
+  ctx.write_set_.pop_back();
+  auto parent_node = guard.AsMut<InternalPage>();
+  ctx.write_set_.push_back(std::move(guard));//这里用完马上放回去
+
+  int paretn_index = (*index_mp)[this_page_id];
+
+  bool borrow_left = true;
+  auto borrow_node = node;
+  borrow_node = nullptr;
+  if (paretn_index == 0) {
+    WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index + 1));
+    borrow_node = guard.AsMut<LeafPage>();
+    borrow_left = false;
+  } else if (paretn_index == parent_node->GetSize() - 1) {
+    WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index - 1));
+    borrow_node = guard.AsMut<LeafPage>();
+    borrow_left = true;
   } else {
-    WritePageGuard guard = std::move(ctx.write_set_.back());
-    ctx.write_set_.pop_back();
-    auto parent_node = guard.AsMut<InternalPage>();
-    // 1.拿到做左 右 兄弟
-    auto left_sibling_node = node;
-    auto right_sibling_node = node;
-    left_sibling_node = nullptr;
-    right_sibling_node = nullptr;
-
-    if (node->GetNextPageId() != INVALID_PAGE_ID) {
-      WritePageGuard guard = bpm_->FetchPageWrite(node->GetNextPageId());
-      right_sibling_node = guard.AsMut<LeafPage>();
-    }
-    page_id_t v;
-    int index = parent_node->FindValue(key, v, comparator_);
-    index--;
-    if (index >= 0) {
-      WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(index));
-      left_sibling_node = guard.AsMut<LeafPage>();
-    }
-    ctx.write_set_.push_back(std::move(guard));  //放回去 父亲节点
-    // 2.选择一个兄弟借一下  //谁多借谁
-    auto borrow_node = left_sibling_node;
-    bool borrow_left = true;
-    if (left_sibling_node == nullptr) {
-      borrow_node = right_sibling_node;
+    WritePageGuard guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index - 1));
+    auto node_left = borrow_node = guard.AsMut<LeafPage>();
+    guard = bpm_->FetchPageWrite(parent_node->ValueAt(paretn_index + 1));
+    auto node_right = borrow_node = guard.AsMut<LeafPage>();
+    if (node_left->GetSize() >= node_right->GetSize()) {
+      borrow_node = node_left;
+      borrow_left = true;
+    } else {
+      borrow_node = node_right;
       borrow_left = false;
     }
-    if (left_sibling_node != nullptr && right_sibling_node != nullptr) {
-      if (right_sibling_node->GetSize() > left_sibling_node->GetSize()) {
-        borrow_node = right_sibling_node;
-        borrow_left = false;
-      }
-    }
+  }
 
-    if (borrow_left) {
-      // 3.如果可以成功街借到 （不触发合并）
-      if (borrow_node->GetSize() - 1 >= borrow_node->GetMinSize()) {
-        //先borrowNode中删除
-        KeyType borrow_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
-        ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
-        borrow_node->IncreaseSize(-1);
-        //再插入到node
-        InsertLeafNode(node, borrow_key, borrow_value, ctx);
-        //删除key
-        DeleteLeafNodeKey(node, key, value, ctx, txn);
-      }  // 4.触发合并
-      else {
-      }
+  if (borrow_node->GetSize() - 1 < borrow_node->GetMinSize()) {
+    //合并
 
-    } else {
-      if (borrow_node->GetSize() - 1 >= borrow_node->GetMinSize()) {
-        //先borrowNode中删除
-        KeyType borrow_key = borrow_node->KeyAt(0);
-        ValueType borrow_value = borrow_node->ValueAt(0);
-        for (int i = 1; i < borrow_node->GetSize(); i++) {
-          borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
-          borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
-        }
-        borrow_node->IncreaseSize(-1);
-        //再插入到node todo:因为这里是从右边借，可以O（1）加入
-        node->SetKeyAt(node->GetSize(), borrow_key);
-        node->SetValueAt(node->GetSize(), borrow_value);
-        node->IncreaseSize(1);
-        // InsertLeafNode(node, borrow_key, borrow_value, ctx);
-        //删除key
-        DeleteLeafNodeKey(node, key, value, ctx, txn);
-      } else  // 4.触发合并
-      {
-      }
+    return;
+  }
+
+  if (borrow_left) {
+    KeyType borrow_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
+    ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
+    borrow_node->IncreaseSize(-1);
+    InsertLeafNode(node, borrow_key, borrow_value, ctx);
+    DeleteLeafNodeKey(node, this_page_id, key, value, index_mp, ctx);
+  } else {
+    KeyType borrow_key = borrow_node->KeyAt(0);
+    ValueType borrow_value = borrow_node->ValueAt(0);
+    for (int i = 1; i < borrow_node->GetSize(); i++) {
+      borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
+      borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
     }
+    borrow_node->IncreaseSize(-1);
+    node->SetKeyAt(node->GetSize(), borrow_key);
+    node->SetValueAt(node->GetSize(), borrow_value);
+    node->IncreaseSize(1);
+    DeleteLeafNodeKey(node, this_page_id, key, value, index_mp, ctx);
   }
 }
+
+// DeleteInternalNodeKey()
 
 /*****************************************************************************
  * INDEX ITERATOR
