@@ -619,6 +619,12 @@ namespace bustub {
 
             }
 
+            for (int i = delete_index; i < node->GetSize() - 1; i++) {
+                node->SetKeyAt(i, node->KeyAt(i + 1));
+                node->SetValueAt(i, node->ValueAt(i + 1));
+            }
+            node->IncreaseSize(-1);
+
             return;
         }
 
