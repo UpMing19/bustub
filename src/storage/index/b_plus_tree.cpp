@@ -587,8 +587,20 @@ namespace bustub {
             //借一个删除
 
             if (borrow_left) {
+                KeyType up_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);;
+                KeyType down_key = parent_node->KeyAt(parent_index - 1);
+                page_id_t down_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
+                borrow_node->IncreaseSize(-1);
 
+                for (int i = node->GetSize(); i > 1; i--) {
+                    node->SetKeyAt(i, node->KeyAt(i - 1));
+                    node->SetValueAt(i, node->ValueAt(i - 1));
+                }
+                node->SetKeyAt(1, down_key);
+                node->SetValueAt(1, down_value);
+                node->IncreaseSize(1);
 
+                parent_node->SetKeyAt(parent_index - 1, up_key);
 
             } else {
                 KeyType up_key = borrow_node->KeyAt(1);;
