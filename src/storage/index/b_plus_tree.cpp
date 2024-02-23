@@ -497,7 +497,7 @@ namespace bustub {
 
             node->SetNextPageId(next_page_id);
             node->IncreaseSize(num);
-
+            DeleteLeafNodeKey(node, this_page_id, key, value, index_mp, ctx);
             ctx.write_set_.pop_back();
             DeleteInternalNodeKey(parent_node, parent_page_id, delete_up_index, index_mp, ctx, txn);
 
@@ -629,6 +629,8 @@ namespace bustub {
         }
 
         //内部节点的合并
+
+
 
 
 
