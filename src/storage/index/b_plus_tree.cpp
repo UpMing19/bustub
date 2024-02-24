@@ -598,7 +598,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
 
       node->SetValueAt(0, down_value);
 
-      parent_node->SetKeyAt(parent_index - 1, up_key);
+      parent_node->SetKeyAt(parent_index, up_key);
 
     } else {
       KeyType up_key = borrow_node->KeyAt(1);
