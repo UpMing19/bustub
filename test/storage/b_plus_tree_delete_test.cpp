@@ -59,7 +59,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-     //   std::cout << tree.DrawBPlusTree() << "\n";
+  //   std::cout << tree.DrawBPlusTree() << "\n";
 
   std::vector<int64_t> remove_keys = {1, 5};
   for (auto key : remove_keys) {
@@ -67,7 +67,7 @@ TEST(BPlusTreeTests, DeleteTest1) {
     tree.Remove(index_key, transaction);
   }
 
-       // std::cout << tree.DrawBPlusTree() << "\n";
+  // std::cout << tree.DrawBPlusTree() << "\n";
 
   int64_t size = 0;
   bool is_present;
