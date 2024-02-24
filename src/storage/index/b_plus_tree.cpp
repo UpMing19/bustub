@@ -424,18 +424,6 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     return;
   }
 
-  if (node->GetSize() - 1 >= node->GetMinSize()) {
-    int index = -1;
-    ValueType v;
-    index = node->FindValue(key, v, comparator_);
-    for (int i = index; i < node->GetSize() - 1; i++) {
-      node->SetKeyAt(i, node->KeyAt(i + 1));
-      node->SetValueAt(i, node->ValueAt(i + 1));
-    }
-    node->IncreaseSize(-1);
-    return;
-  }
-
   int index = -1;
   ValueType v;
   index = node->FindValue(key, v, comparator_);
@@ -444,6 +432,10 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     node->SetValueAt(i, node->ValueAt(i + 1));
   }
   node->IncreaseSize(-1);
+
+  if (node->GetSize() >= node->GetMinSize()) {
+    return;
+  }
 
   // 2.两侧节点可以安全删除一个 就借一个
   WritePageGuard guard = std::move(ctx.write_set_.back());
@@ -593,26 +585,27 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
 
     if (borrow_left) {
       KeyType up_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
-      KeyType down_key = parent_node->KeyAt(parent_index - 1);
+      KeyType down_key = parent_node->KeyAt(parent_index);
       page_id_t down_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
       borrow_node->IncreaseSize(-1);
 
-      for (int i = node->GetSize(); i > 1; i--) {
+      node->SetKeyAt(0, down_key);
+      for (int i = node->GetSize(); i >=1; i--) {
         node->SetKeyAt(i, node->KeyAt(i - 1));
         node->SetValueAt(i, node->ValueAt(i - 1));
       }
-      node->SetKeyAt(1, down_key);
-      node->SetValueAt(1, down_value);
       node->IncreaseSize(1);
-
+      
+      node->SetValueAt(0, down_value);
+      
       parent_node->SetKeyAt(parent_index - 1, up_key);
 
     } else {
       KeyType up_key = borrow_node->KeyAt(1);
 
       KeyType down_key = parent_node->KeyAt(parent_index + 1);
-      page_id_t down_value = borrow_node->ValueAt(1);
-      for (int i = 2; i < borrow_node->GetSize(); i++) {
+      page_id_t down_value = borrow_node->ValueAt(0);
+      for (int i = 1; i < borrow_node->GetSize(); i++) {
         borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
         borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
       }
