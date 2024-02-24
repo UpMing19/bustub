@@ -590,14 +590,14 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
       borrow_node->IncreaseSize(-1);
 
       node->SetKeyAt(0, down_key);
-      for (int i = node->GetSize(); i >=1; i--) {
+      for (int i = node->GetSize(); i >= 1; i--) {
         node->SetKeyAt(i, node->KeyAt(i - 1));
         node->SetValueAt(i, node->ValueAt(i - 1));
       }
       node->IncreaseSize(1);
-      
+
       node->SetValueAt(0, down_value);
-      
+
       parent_node->SetKeyAt(parent_index - 1, up_key);
 
     } else {
