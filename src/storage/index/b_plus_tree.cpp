@@ -416,6 +416,9 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     int index = -1;
     ValueType v;
     index = node->FindValue(key, v, comparator_);
+    if (index == -1 || (comparator_(node->KeyAt(index), key) != 0)) {
+      return;
+    }
     for (int i = index; i < node->GetSize() - 1; i++) {
       node->SetKeyAt(i, node->KeyAt(i + 1));
       node->SetValueAt(i, node->ValueAt(i + 1));
@@ -433,7 +436,7 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
   }
   node->IncreaseSize(-1);
 
-  if (node->GetSize() >= node->GetMinSize()) {
+  if (node->GetSize() >= node->GetMinSize()) {  // 删掉之后还能维持树的形状
     return;
   }
 
@@ -537,11 +540,20 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
   }
 
   if (ctx.write_set_.empty()) {
-    // todo:这里减少树的高度？
-    WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-    auto node2 = guard.AsMut<BPlusTreeHeaderPage>();
-    node2->root_page_id_ = node->ValueAt(0);
-    ctx.root_page_id_ = node->ValueAt(0);
+
+    if (node->GetSize() == 1) {
+      auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
+      head_page->root_page_id_ = node->ValueAt(0);
+      ctx.root_page_id_ = node->ValueAt(0);
+      return;
+    }
+
+    for (int i = delete_index; i < node->GetSize() - 1; i++) {
+      node->SetKeyAt(i, node->KeyAt(i + 1));
+      node->SetValueAt(i, node->ValueAt(i + 1));
+    }
+    node->IncreaseSize(-1);
+
     return;
   }
 
