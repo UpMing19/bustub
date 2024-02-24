@@ -48,7 +48,7 @@ class IndexIterator {
   BufferPoolManager *bpm_;
   page_id_t pid_;
   int index_;
-  MappingType entry;
+  MappingType entry_;
 };
 
 }  // namespace bustub

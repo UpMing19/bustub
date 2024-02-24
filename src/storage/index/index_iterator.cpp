@@ -32,9 +32,9 @@ auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
   auto node = guard.AsMut<LeafPage>();
   KeyType k = node->KeyAt(index_);
   ValueType v = node->ValueAt(index_);
-  entry.first = k;
-  entry.second = v;
-  return entry;
+  entry_.first = k;
+  entry_.second = v;
+  return entry_;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
