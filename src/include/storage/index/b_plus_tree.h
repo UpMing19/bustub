@@ -14,7 +14,7 @@
 #include <deque>
 #include <iostream>
 #include <map>
-#include <mutex>
+#include <mutex>  // NOLINT
 #include <optional>
 #include <queue>
 #include <shared_mutex>
@@ -170,7 +170,7 @@ class BPlusTree {
   int internal_max_size_;
   page_id_t header_page_id_;
 
-  std::mutex mutex_;
+  std::mutex mutex_;  // NOLINT
 };
 
 /**

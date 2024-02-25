@@ -1,5 +1,5 @@
 #include <cstddef>
-#include <mutex>
+#include <mutex>  // NOLINT
 #include <optional>
 #include <sstream>
 #include <string>
@@ -54,6 +54,7 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   // Declaration of context instance.
+  // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
 
@@ -62,23 +63,36 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   }
   ReadPageGuard guard = bpm_->FetchPageRead(GetRootPageId());
   page_id_t next_page_id;
+
   auto tree_page = guard.As<BPlusTreePage>();
+
   while (!tree_page->IsLeafPage()) {
     auto internal_node = guard.As<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
     guard = bpm_->FetchPageRead(next_page_id);
     tree_page = guard.As<BPlusTreePage>();
+    ctx.read_set_.push_back(std::move(guard));
   }
   auto leaf_node = guard.As<LeafPage>();
+  ctx.read_set_.push_back(std::move(guard));
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
   if (index == -1) {
+    while (!ctx.read_set_.empty()) {
+      ctx.read_set_.pop_back();
+    }
     return false;
   }
   if ((comparator_(leaf_node->KeyAt(index), key) == 0)) {
     value = leaf_node->ValueAt(index);
     result->push_back(value);
+    while (!ctx.read_set_.empty()) {
+      ctx.read_set_.pop_back();
+    }
     return true;
+  }
+  while (!ctx.read_set_.empty()) {
+    ctx.read_set_.pop_back();
   }
   return false;
 }
@@ -96,14 +110,15 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
   // Declaration of context instance.
-  std::unique_lock<std::mutex> lq(mutex_);
+
   Context ctx;
   (void)ctx;
   std::vector<ValueType> result;
   if (GetValue(key, &result)) {
     return false;
   }
-  //  如果为空心 新建一个叶子结点
+  // std::unique_lock<std::mutex> lq(mutex_);
+  //   如果为空心 新建一个叶子结点
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
   auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
 
@@ -354,7 +369,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // Declaration of context instance.
-  std::unique_lock<std::mutex> lq(mutex_);
+  // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
 
@@ -389,11 +404,17 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
   if (index == -1) {
+    while (!ctx.write_set_.empty()) {
+      ctx.write_set_.pop_back();
+    }
     return;
   }
   if ((comparator_(leaf_node->KeyAt(index), key) == 0)) {
     value = leaf_node->ValueAt(index);
   } else {
+    while (!ctx.write_set_.empty()) {
+      ctx.write_set_.pop_back();
+    }
     return;
   }
   DeleteLeafNodeKey(leaf_node, this_page_id, key, value, &index_mp, ctx, txn);

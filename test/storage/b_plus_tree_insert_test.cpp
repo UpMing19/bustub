@@ -82,7 +82,13 @@ TEST(BPlusTreeTests, InsertTest2) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  std::srand(static_cast<unsigned int>(std::time(0)));
+
+  std::vector<int64_t> keys = {};
+  int scale = 20;
+  for(int i = 1; i<=scale;i++){
+      keys.push_back(std::rand()%scale+1);
+  }
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
