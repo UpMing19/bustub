@@ -28,9 +28,9 @@ auto INDEXITERATOR_TYPE::IsEnd() -> bool { return pid_ == -1; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
-  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
-  auto node = guard.AsMut<LeafPage>();
-    KeyType k = node->KeyAt(index_);
+  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
+  auto node = guard.As<LeafPage>();
+  KeyType k = node->KeyAt(index_);
   ValueType v = node->ValueAt(index_);
   entry_.first = k;
   entry_.second = v;
@@ -43,12 +43,12 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     index_ = 0;
     return *this;
   }
-  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
-  auto node = guard.AsMut<LeafPage>();
-    if (index_ + 1 < node->GetSize()) {
+  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
+  auto node = guard.As<LeafPage>();
+  if (index_ + 1 < node->GetSize()) {
     index_++;
   } else if (node->GetNextPageId() != -1) {
-    guard = bpm_->FetchPageWrite(node->GetNextPageId());
+    guard = bpm_->FetchPageRead(node->GetNextPageId());
     pid_ = guard.PageId();
     index_ = 0;
   } else {
