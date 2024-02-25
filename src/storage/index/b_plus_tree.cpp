@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <mutex>
 #include <optional>
 #include <sstream>
 #include <string>
@@ -95,6 +96,7 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
   // Declaration of context instance.
+  std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
   std::vector<ValueType> result;
@@ -352,6 +354,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
 INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // Declaration of context instance.
+  std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
 
@@ -410,6 +413,7 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     if (node->GetSize() == 1) {
       auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
       head_page->root_page_id_ = INVALID_PAGE_ID;
+      ctx.header_page_ = std::nullopt;
       ctx.root_page_id_ = INVALID_PAGE_ID;
       node->IncreaseSize(-1);
       return;
