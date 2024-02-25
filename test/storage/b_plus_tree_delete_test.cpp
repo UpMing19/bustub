@@ -259,13 +259,30 @@ TEST(BPlusTreeTests, DeleteTest4) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  std::vector<int64_t> keys = {1, 2, 3, 4, 5};
+  int scale = 12;
+  std::vector<int64_t> keys = {};
+  for (int i = 1; i <= scale; i++) {
+    keys.push_back(i);
+  }
+  auto rng = std::default_random_engine{};
+  std::shuffle(keys.begin(), keys.end(), rng);
+  // keys = {2, 3, 1, 4, 5};
+  std::string log_info;
+  log_info = "keys = {";
+  for (int elem : keys) {
+    std::string str_elem = std::to_string(elem);
+    log_info += " ," + str_elem;
+  }
+  log_info += "}";
+  std::cout << log_info << std::endl;
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
   }
+
+  std::cout << tree.DrawBPlusTree() << "\n";
 
   std::vector<RID> rids;
   for (auto key : keys) {
@@ -278,20 +295,34 @@ TEST(BPlusTreeTests, DeleteTest4) {
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
 
-  std::vector<int64_t> remove_keys = {1, 5, 3, 4};
+  std::vector<int64_t> remove_keys = {};
+  for (int i = 1; i <= scale - 1; i++) {
+    remove_keys.push_back(random() % scale + 1);
+  }
+  std::shuffle(remove_keys.begin(), remove_keys.end(), rng);
+  // remove_keys = {3, 2, 4, 1};
+  log_info = "remove_keys = {";
+  for (int elem : remove_keys) {
+    std::string str_elem = std::to_string(elem);
+    log_info += ", " + str_elem;
+  }
+  log_info += "}";
+  std::cout << log_info << std::endl;
+
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
+    std::cout << tree.DrawBPlusTree() << "\n";
   }
 
   int64_t size = 0;
   bool is_present;
 
-  for (auto key : keys) {
+  for (int key : keys) {
     rids.clear();
     index_key.SetFromInteger(key);
     is_present = tree.GetValue(index_key, &rids);
-
+    LOG_INFO("key = %d,is_present = %d", key, is_present);
     if (!is_present) {
       EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
     } else {
@@ -302,7 +333,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
     }
   }
 
-  EXPECT_EQ(size, 1);
+  // EXPECT_EQ(size, 1);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;

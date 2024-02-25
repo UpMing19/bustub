@@ -370,6 +370,13 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
   std::map<page_id_t, int> index_mp;
 
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  if (GetRootPageId() == INVALID_PAGE_ID) {
+    std::cout << "根节点无效" << std::endl;
+    return;
+  }
+  ctx.root_page_id_ = GetRootPageId();
+
   WritePageGuard guard = bpm_->FetchPageWrite(GetRootPageId());
   auto tree_node = guard.AsMut<BPlusTreePage>();
 
@@ -530,17 +537,19 @@ INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t this_page_id, int delete_index,
                                            std::map<page_id_t, int> *index_mp, bustub::Context &ctx,
                                            bustub::Transaction *txn) {
-  if (node->GetSize() - 1 >= node->GetMinSize()) {
-    for (int i = delete_index; i < node->GetSize() - 1; i++) {
-      node->SetKeyAt(i, node->KeyAt(i + 1));
-      node->SetValueAt(i, node->ValueAt(i + 1));
-    }
-    node->IncreaseSize(-1);
+  for (int i = delete_index; i < node->GetSize() - 1; i++) {
+    node->SetKeyAt(i, node->KeyAt(i + 1));
+    node->SetValueAt(i, node->ValueAt(i + 1));
+  }
+  node->IncreaseSize(-1);
+  if (node->GetSize() >= node->GetMinSize()) {
     return;
   }
 
   if (ctx.write_set_.empty()) {
-
+    //      if (node->GetSize() == 1) {
+    //          throw Exception("不能存在这种情况，根节点size=1，因为这个时候已经变成了叶子节点");
+    //      }
     if (node->GetSize() == 1) {
       auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
       head_page->root_page_id_ = node->ValueAt(0);
@@ -629,12 +638,6 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
       parent_node->SetKeyAt(parent_index + 1, up_key);
     }
 
-    for (int i = delete_index; i < node->GetSize() - 1; i++) {
-      node->SetKeyAt(i, node->KeyAt(i + 1));
-      node->SetValueAt(i, node->ValueAt(i + 1));
-    }
-    node->IncreaseSize(-1);
-
     return;
   }
 
@@ -654,12 +657,6 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
       num++;
     }
     node->IncreaseSize(num);
-
-    for (int i = delete_index; i < node->GetSize() - 1; i++) {
-      node->SetKeyAt(i, node->KeyAt(i + 1));
-      node->SetValueAt(i, node->ValueAt(i + 1));
-    }
-    node->IncreaseSize(-1);
 
     int delete_index_in_parent = parent_index + 1;
     ctx.write_set_.pop_back();
@@ -683,12 +680,6 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
       num++;
     }
     node->IncreaseSize(num);
-
-    for (int i = delete_index; i < node->GetSize() - 1; i++) {
-      node->SetKeyAt(i, node->KeyAt(i + 1));
-      node->SetValueAt(i, node->ValueAt(i + 1));
-    }
-    node->IncreaseSize(-1);
 
     int delete_index_in_parent = parent_index;
     ctx.write_set_.pop_back();
