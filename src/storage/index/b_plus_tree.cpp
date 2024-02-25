@@ -140,14 +140,11 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   InsertLeafNode(leaf_node, key, value, ctx, txn);
 
-  /*
-  1.找到对应的该插入叶子Page
-  2.插入
-  3.分裂叶子结点（如果需要）
-  4.分裂后的叶子结点的其中一个头结点插入到父亲节点
-  5.分裂父亲节点（如果需要） -->递归
-  */
-
+  while (!ctx.write_set_.empty()) {
+    WritePageGuard guard = std::move(ctx.write_set_.back());
+    guard.Drop();
+    ctx.write_set_.pop_back();
+  }
   return false;
 }
 
@@ -217,7 +214,6 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   node->SetNextPageId(pid);
 
   InsertParent(new_leaf_node->KeyAt(0), pid, ctx, txn);
-  //  InsertParent(new_leaf_node->KeyAt(0), new_leaf_node->ValueAt(0).GetPageId(), ctx, txn);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -403,6 +399,12 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     return;
   }
   DeleteLeafNodeKey(leaf_node, this_page_id, key, value, &index_mp, ctx, txn);
+
+  while (!ctx.write_set_.empty()) {
+    WritePageGuard guard = std::move(ctx.write_set_.back());
+    guard.Drop();
+    ctx.write_set_.pop_back();
+  }
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -697,17 +699,20 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  BasicPageGuard guard = bpm_->FetchPageBasic(GetRootPageId());
-  if (guard.PageId() == INVALID_PAGE_ID) {
+  ReadPageGuard guard = bpm_->FetchPageRead(header_page_id_);
+  auto head_page = guard.As<BPlusTreeHeaderPage>();
+  if (head_page->root_page_id_ == INVALID_PAGE_ID) {
+    LOG_INFO("Begin的时候根节点无效");
     return End();
   }
+  guard = bpm_->FetchPageRead(head_page->root_page_id_);
   page_id_t next_page_id;
-  auto tree_page = guard.AsMut<BPlusTreePage>();
+  auto tree_page = guard.As<BPlusTreePage>();
   while (!tree_page->IsLeafPage()) {
-    auto internal_node = guard.AsMut<InternalPage>();
+    auto internal_node = guard.As<InternalPage>();
     next_page_id = internal_node->ValueAt(0);
-    guard = bpm_->FetchPageBasic(next_page_id);
-    tree_page = guard.AsMut<BPlusTreePage>();
+    guard = bpm_->FetchPageRead(next_page_id);
+    tree_page = guard.As<BPlusTreePage>();
   }
   next_page_id = guard.PageId();
   return INDEXITERATOR_TYPE(bpm_, next_page_id, 0);
@@ -720,19 +725,22 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  BasicPageGuard guard = bpm_->FetchPageBasic(GetRootPageId());
-  if (guard.PageId() == INVALID_PAGE_ID) {
+  ReadPageGuard guard = bpm_->FetchPageRead(header_page_id_);
+  auto head_page = guard.As<BPlusTreeHeaderPage>();
+  if (head_page->root_page_id_ == INVALID_PAGE_ID) {
+    LOG_INFO("Begin的时候根节点无效");
     return End();
   }
   page_id_t next_page_id;
-  auto tree_page = guard.AsMut<BPlusTreePage>();
+  guard = bpm_->FetchPageRead(head_page->root_page_id_);
+  auto tree_page = guard.As<BPlusTreePage>();
   while (!tree_page->IsLeafPage()) {
-    auto internal_node = guard.AsMut<InternalPage>();
+    auto internal_node = guard.As<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
-    guard = bpm_->FetchPageBasic(next_page_id);
-    tree_page = guard.AsMut<BPlusTreePage>();
+    guard = bpm_->FetchPageRead(next_page_id);
+    tree_page = guard.As<BPlusTreePage>();
   }
-  auto leaf_node = guard.AsMut<LeafPage>();
+  auto leaf_node = guard.As<LeafPage>();
   next_page_id = guard.PageId();
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
@@ -759,8 +767,8 @@ auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE { return INDEXITERATOR_TYPE(bpm
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetRootPageId() -> page_id_t {
-  BasicPageGuard guard = bpm_->FetchPageBasic(header_page_id_);
-  auto head_page = guard.AsMut<BPlusTreeHeaderPage>();
+  ReadPageGuard guard = bpm_->FetchPageRead(header_page_id_);
+  auto head_page = guard.As<BPlusTreeHeaderPage>();
   return head_page->root_page_id_;
 }
 

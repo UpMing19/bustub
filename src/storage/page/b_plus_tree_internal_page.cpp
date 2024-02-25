@@ -65,8 +65,8 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyValueAt(int index, KeyType key, Value
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator)
-    -> int {
+auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::FindValue(const KeyType &key, ValueType &value,
+                                               const KeyComparator &comparator) const -> int {
   int l = 1;
   int r = GetSize() - 1;
   int ans_index = GetSize() - 1;

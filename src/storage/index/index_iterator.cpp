@@ -30,7 +30,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
   WritePageGuard guard = bpm_->FetchPageWrite(pid_);
   auto node = guard.AsMut<LeafPage>();
-  KeyType k = node->KeyAt(index_);
+    KeyType k = node->KeyAt(index_);
   ValueType v = node->ValueAt(index_);
   entry_.first = k;
   entry_.second = v;
@@ -45,7 +45,7 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   }
   WritePageGuard guard = bpm_->FetchPageWrite(pid_);
   auto node = guard.AsMut<LeafPage>();
-  if (index_ + 1 < node->GetSize()) {
+    if (index_ + 1 < node->GetSize()) {
     index_++;
   } else if (node->GetNextPageId() != -1) {
     guard = bpm_->FetchPageWrite(node->GetNextPageId());

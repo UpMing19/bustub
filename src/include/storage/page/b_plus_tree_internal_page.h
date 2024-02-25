@@ -77,7 +77,7 @@ class BPlusTreeInternalPage : public BPlusTreePage {
   auto SetValueAt(int index, ValueType value) -> void;
   auto SetKeyValueAt(int index, KeyType key, ValueType value);
 
-  auto FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator) -> int;
+  auto FindValue(const KeyType &key, ValueType &value, const KeyComparator &comparator) const -> int;
   /**
    * @brief For test only, return a string representing all keys in
    * this internal page, formatted as "(key1,key2,key3,...)"
