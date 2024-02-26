@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#include "storage/index/b_plus_tree.h"
 #include "storage/page/b_plus_tree_leaf_page.h"
 
 namespace bustub {

@@ -53,6 +53,9 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   // replace with your own code
   KeyType key{};
+  if (index < 0 || index >= GetSize()) {
+    throw Exception("index不在范围内");
+  }
   key = array_[index].first;
   return key;
 }
@@ -65,6 +68,9 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   // replace with your own code
   ValueType value{};
+  if (index < 0 || index >= GetSize()) {
+    throw Exception("index不在范围内");
+  }
   value = array_[index].second;
   return value;
 }

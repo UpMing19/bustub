@@ -39,6 +39,9 @@ INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::KeyAt(int index) const -> KeyType {
   // replace with your own code
   KeyType key{};
+  if (index < 0 || index >= GetSize()) {
+    throw Exception("2index不在范围内");
+  }
   key = array_[index].first;
   return key;
 }
@@ -53,8 +56,8 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { a
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   ValueType v;
-  if (index > GetSize()) {
-    throw Exception("internal node page 错误错误错误错误");
+  if (index < 0 || index >= GetSize()) {
+    throw Exception("2index不在范围内");
   }
   v = array_[index].second;
   return v;

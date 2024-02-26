@@ -259,7 +259,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  int scale = 12;
+  int scale = 100;
   std::vector<int64_t> keys = {};
   for (int i = 1; i <= scale; i++) {
     keys.push_back(i);
@@ -282,7 +282,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
     tree.Insert(index_key, rid, transaction);
   }
 
-  std::cout << tree.DrawBPlusTree() << "\n";
+  // std::cout << tree.DrawBPlusTree() << "\n";
 
   std::vector<RID> rids;
   for (auto key : keys) {
@@ -307,12 +307,12 @@ TEST(BPlusTreeTests, DeleteTest4) {
     log_info += ", " + str_elem;
   }
   log_info += "}";
-  std::cout << log_info << std::endl;
+  // std::cout << log_info << std::endl;
 
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
     tree.Remove(index_key, transaction);
-    std::cout << tree.DrawBPlusTree() << "\n";
+    // std::cout << tree.DrawBPlusTree() << "\n";
   }
 
   int64_t size = 0;
@@ -322,8 +322,10 @@ TEST(BPlusTreeTests, DeleteTest4) {
     rids.clear();
     index_key.SetFromInteger(key);
     is_present = tree.GetValue(index_key, &rids);
-    LOG_INFO("key = %d,is_present = %d", key, is_present);
+    // LOG_INFO("key = %d,is_present = %d", key, is_present);
     if (!is_present) {
+      //  if(std::find(remove_keys.begin(), remove_keys.end(), key)!=remove_keys.end())
+      //    debug(key);
       EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
     } else {
       EXPECT_EQ(rids.size(), 1);

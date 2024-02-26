@@ -93,10 +93,10 @@ class BPlusTree {
   void Remove(const KeyType &key, Transaction *txn);
 
   void DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, const KeyType &key, const ValueType &value,
-                         std::map<page_id_t, int> *index_mp, Context &ctx, Transaction *txn = nullptr);
+                         std::map<page_id_t, int> index_mp, Context &ctx, Transaction *txn = nullptr);
 
   void DeleteInternalNodeKey(InternalPage *node, page_id_t this_page_id, int delete_index,
-                             std::map<page_id_t, int> *index_mp, Context &ctx, Transaction *txn = nullptr);
+                             std::map<page_id_t, int> index_mp, Context &ctx, Transaction *txn = nullptr);
 
   // Return the value associated with a given key
   auto GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn = nullptr) -> bool;
@@ -169,8 +169,6 @@ class BPlusTree {
   int leaf_max_size_;
   int internal_max_size_;
   page_id_t header_page_id_;
-
-  std::mutex mutex_;  // NOLINT
 };
 
 /**
