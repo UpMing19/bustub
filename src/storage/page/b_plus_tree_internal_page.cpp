@@ -53,6 +53,9 @@ void B_PLUS_TREE_INTERNAL_PAGE_TYPE::SetKeyAt(int index, const KeyType &key) { a
 INDEX_TEMPLATE_ARGUMENTS
 auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   ValueType v;
+  if (index > GetSize()) {
+    throw Exception("internal node page 错误错误错误错误");
+  }
   v = array_[index].second;
   return v;
 }

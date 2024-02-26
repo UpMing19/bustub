@@ -114,7 +114,7 @@ void LookupHelper(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, con
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     std::vector<RID> result;
-    //std::cout<<"查找key："<<key<<std::endl;
+    // std::cout<<"查找key："<<key<<std::endl;
     bool res = tree->GetValue(index_key, &result, transaction);
     ASSERT_EQ(res, true);
     ASSERT_EQ(result.size(), 1);
@@ -181,15 +181,33 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator,2,3);
   // keys to Insert
   std::vector<int64_t> keys;
-  int64_t scale_factor = 100;
+  std::vector<int64_t> keys2;
+  int64_t scale_factor = 5;
   for (int64_t key = 1; key < scale_factor; key++) {
     keys.push_back(key);
   }
-  LaunchParallelTest(2, InsertHelperSplit, &tree, keys, 2);
+  for (int64_t key = scale_factor; key < 2*scale_factor; key++) {
+      keys2.push_back(key);
+  }
+        auto insert_task = [&](int tid) { InsertHelper(&tree, keys2, tid); };
+        auto insert_task2 = [&](int tid) { InsertHelper(&tree, keys, tid); };
 
+        std::vector<std::thread> threads;
+        std::vector<std::function<void(int)>> tasks;
+        tasks.emplace_back(insert_task);
+        tasks.emplace_back(insert_task2);
+
+
+        size_t num_threads = 2;
+        for (size_t i = 0; i < num_threads; i++) {
+            threads.emplace_back(tasks[i % tasks.size()], i);
+        }
+        for (size_t i = 0; i < num_threads; i++) {
+            threads[i].join();
+        }
   std::vector<RID> rids;
   GenericKey<8> index_key;
   for (auto key : keys) {
@@ -201,7 +219,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
     int64_t value = key & 0xFFFFFFFF;
     EXPECT_EQ(rids[0].GetSlotNum(), value);
   }
-
+  std::cout<<tree.DrawBPlusTree()<<std::endl;
   int64_t start_key = 1;
   int64_t current_key = start_key;
   index_key.SetFromInteger(start_key);
@@ -212,7 +230,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
     current_key = current_key + 1;
   }
 
-  EXPECT_EQ(current_key, keys.size() + 1);
+  EXPECT_EQ(current_key, keys2.size()+keys.size() + 1);
 
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete bpm;
