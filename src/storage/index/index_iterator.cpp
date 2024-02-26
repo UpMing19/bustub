@@ -3,6 +3,7 @@
  */
 #include <cassert>
 
+#include "common/logger.h"
 #include "storage/index/b_plus_tree.h"
 #include "storage/index/index_iterator.h"
 #include "storage/page/page_guard.h"
@@ -28,6 +29,9 @@ auto INDEXITERATOR_TYPE::IsEnd() -> bool { return pid_ == -1; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
+  if (pid_ == -1) {
+    LOG_ERROR("pid=-1，无效迭代器");
+  }
   ReadPageGuard guard = bpm_->FetchPageRead(pid_);
   auto node = guard.As<LeafPage>();
   KeyType k = node->KeyAt(index_);

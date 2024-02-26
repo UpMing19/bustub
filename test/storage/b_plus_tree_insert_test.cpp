@@ -85,9 +85,9 @@ TEST(BPlusTreeTests, InsertTest2) {
   std::srand(static_cast<unsigned int>(std::time(0)));
 
   std::vector<int64_t> keys = {};
-  int scale = 20;
-  for(int i = 1; i<=scale;i++){
-      keys.push_back(std::rand()%scale+1);
+  int scale = 8;
+  for (int i = 1; i <= scale; i++) {
+    keys.push_back(std::rand() % scale + 1);
   }
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;

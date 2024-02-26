@@ -61,7 +61,10 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   if (GetRootPageId() == INVALID_PAGE_ID) {
     return false;
   }
-  ReadPageGuard guard = bpm_->FetchPageRead(GetRootPageId());
+  ReadPageGuard guard = bpm_->FetchPageRead(header_page_id_);
+  ctx.read_set_.push_back(std::move(guard));
+  guard = bpm_->FetchPageRead(GetRootPageId());
+
   page_id_t next_page_id;
 
   auto tree_page = guard.As<BPlusTreePage>();
@@ -71,15 +74,16 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     internal_node->FindValue(key, next_page_id, comparator_);
     guard = bpm_->FetchPageRead(next_page_id);
     tree_page = guard.As<BPlusTreePage>();
-    ctx.read_set_.push_back(std::move(guard));
   }
   auto leaf_node = guard.As<LeafPage>();
-  ctx.read_set_.push_back(std::move(guard));
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
   if (index == -1) {
     while (!ctx.read_set_.empty()) {
+      auto gu = std::move(ctx.read_set_.back());
       ctx.read_set_.pop_back();
+      gu.Drop();
+      ctx.header_page_ = std::nullopt;
     }
     return false;
   }
@@ -87,12 +91,18 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     value = leaf_node->ValueAt(index);
     result->push_back(value);
     while (!ctx.read_set_.empty()) {
+      auto gu = std::move(ctx.read_set_.back());
       ctx.read_set_.pop_back();
+      gu.Drop();
+      ctx.header_page_ = std::nullopt;
     }
     return true;
   }
   while (!ctx.read_set_.empty()) {
+    auto gu = std::move(ctx.read_set_.back());
     ctx.read_set_.pop_back();
+    gu.Drop();
+    ctx.header_page_ = std::nullopt;
   }
   return false;
 }
@@ -113,10 +123,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   Context ctx;
   (void)ctx;
-  std::vector<ValueType> result;
-  if (GetValue(key, &result)) {
-    return false;
-  }
+
   // std::unique_lock<std::mutex> lq(mutex_);
   //   如果为空心 新建一个叶子结点
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
@@ -144,17 +151,14 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     tree_node = guard.AsMut<BPlusTreePage>();
   }
 
-  //  if(!ctx.write_set_.empty()){
-  //      guard = std::move(ctx.write_set_.back());
-  //      ctx.write_set_.pop_back();
-  //  }
-
   auto leaf_node = guard.AsMut<LeafPage>();
 
   InsertLeafNode(leaf_node, key, value, ctx, txn);
-
   while (!ctx.write_set_.empty()) {
+    auto gu = std::move(ctx.write_set_.back());
     ctx.write_set_.pop_back();
+    gu.Drop();
+    ctx.header_page_ = std::nullopt;
   }
   return false;
 }
@@ -162,6 +166,12 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
                                     Transaction *txn) -> void {
+  ValueType v;
+  int index = node->FindValue(key, v, comparator_);
+  if (index != -1 && comparator_(node->KeyAt(index), key) == 0) {
+    LOG_INFO(" key重复 ");
+    return;
+  }
   if (node->GetSize() + 1 == node->GetMaxSize()) {
     // 分裂
     SplitLeafNode(node, key, value, ctx, txn);
@@ -333,6 +343,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
   WritePageGuard guard = std::move(ctx.write_set_.back());
   ctx.write_set_.pop_back();
   auto internal_node = guard.AsMut<InternalPage>();
+
   if (internal_node->GetSize() == internal_node->GetMaxSize()) {
     SplitInternalNode(internal_node, key, value, ctx, txn);
   } else {
@@ -403,23 +414,24 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   page_id_t this_page_id = guard.PageId();
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
-  if (index == -1) {
-    while (!ctx.write_set_.empty()) {
-      ctx.write_set_.pop_back();
-    }
-    return;
-  }
-  if ((comparator_(leaf_node->KeyAt(index), key) == 0)) {
+
+  if (index != -1 && (comparator_(leaf_node->KeyAt(index), key) == 0)) {
     value = leaf_node->ValueAt(index);
   } else {
     while (!ctx.write_set_.empty()) {
+      auto gu = std::move(ctx.write_set_.back());
       ctx.write_set_.pop_back();
+      gu.Drop();
+      ctx.header_page_ = std::nullopt;
     }
     return;
   }
   DeleteLeafNodeKey(leaf_node, this_page_id, key, value, &index_mp, ctx, txn);
   while (!ctx.write_set_.empty()) {
+    auto gu = std::move(ctx.write_set_.back());
     ctx.write_set_.pop_back();
+    gu.Drop();
+    ctx.header_page_ = std::nullopt;
   }
 }
 
@@ -566,9 +578,6 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
   }
 
   if (ctx.write_set_.empty()) {
-    //      if (node->GetSize() == 1) {
-    //          throw Exception("不能存在这种情况，根节点size=1，因为这个时候已经变成了叶子节点");
-    //      }
     if (node->GetSize() == 1) {
       auto head_page = ctx.header_page_->AsMut<BPlusTreeHeaderPage>();
       head_page->root_page_id_ = node->ValueAt(0);
