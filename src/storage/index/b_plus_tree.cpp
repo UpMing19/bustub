@@ -60,11 +60,10 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
   if (GetRootPageId() == INVALID_PAGE_ID) {
     return false;
   }
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto head_node = guard.AsMut<BPlusTreeHeaderPage>();
-  ctx.header_page_ = std::move(guard);
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  auto head_node = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
 
-  guard = bpm_->FetchPageWrite(head_node->root_page_id_);
+  WritePageGuard guard = bpm_->FetchPageWrite(head_node->root_page_id_);
 
   page_id_t next_page_id;
   auto tree_page = guard.AsMut<BPlusTreePage>();
@@ -103,9 +102,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   // std::cout << "Thread ID: " << thread << " -- Find | key : " << std::to_string(key.ToString()).c_str() << std::endl;
   Context ctx;
   (void)ctx;
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto head_page = guard.AsMut<BPlusTreeHeaderPage>();
-  ctx.header_page_ = std::move(guard);
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
 
   if (head_page->root_page_id_ == INVALID_PAGE_ID) {
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
@@ -116,7 +114,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
   ctx.root_page_id_ = head_page->root_page_id_;
 
-  guard = bpm_->FetchPageWrite(head_page->root_page_id_);
+  WritePageGuard guard = bpm_->FetchPageWrite(head_page->root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
 
   while (!tree_node->IsLeafPage()) {
@@ -140,7 +138,7 @@ auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const Va
   ValueType v;
   int index = node->FindValue(key, v, comparator_);
   if (index != -1 && comparator_(node->KeyAt(index), key) == 0) {
-    LOG_INFO(" key重复 ");
+    // LOG_INFO(" key重复 ");
     return;
   }
   if (node->GetSize() + 1 == node->GetMaxSize()) {
@@ -361,13 +359,11 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
   std::map<page_id_t, int> index_mp;
 
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto head_page = guard.AsMut<BPlusTreeHeaderPage>();
-
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
   ctx.root_page_id_ = head_page->root_page_id_;
-  ctx.header_page_ = std::move(guard);
 
-  guard = bpm_->FetchPageWrite(ctx.root_page_id_);
+  WritePageGuard guard = bpm_->FetchPageWrite(ctx.root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
 
   while (!tree_node->IsLeafPage()) {
@@ -543,12 +539,11 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
   if (ctx.write_set_.empty()) {
     if (node->GetSize() == 1) {
       LOG_INFO("减少树高");
-      ctx.header_page_ = std::nullopt;
-      WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-      auto head_page = guard.AsMut<BPlusTreeHeaderPage>();
+      auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
+
       head_page->root_page_id_ = node->ValueAt(0);
       ctx.root_page_id_ = node->ValueAt(0);
-      ctx.header_page_ = std::move(guard);
+
       node->IncreaseSize(-1);
       return;
     }
@@ -697,14 +692,14 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
   Context ctx;
   (void)ctx;
 
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto head_node = guard.AsMut<BPlusTreeHeaderPage>();
-  ctx.header_page_ = std::move(guard);
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  auto head_node = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
+
   ctx.root_page_id_ = head_node->root_page_id_;
-  if (head_node->root_page_id_ == INVALID_PAGE_ID) {
+  if (ctx.root_page_id_ == INVALID_PAGE_ID) {
     return End();
   }
-  guard = bpm_->FetchPageWrite(ctx.root_page_id_);
+  WritePageGuard guard = bpm_->FetchPageWrite(ctx.root_page_id_);
   page_id_t next_page_id;
   auto tree_page = guard.AsMut<BPlusTreePage>();
   while (!tree_page->IsLeafPage()) {
@@ -728,14 +723,14 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   Context ctx;
   (void)ctx;
 
-  WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
-  auto head_node = guard.AsMut<BPlusTreeHeaderPage>();
-  ctx.header_page_ = std::move(guard);
+  ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
+  auto head_node = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
+
   ctx.root_page_id_ = head_node->root_page_id_;
-  if (head_node->root_page_id_ == INVALID_PAGE_ID) {
+  if (ctx.root_page_id_ == INVALID_PAGE_ID) {
     return End();
   }
-  guard = bpm_->FetchPageWrite(ctx.root_page_id_);
+  WritePageGuard guard = bpm_->FetchPageWrite(ctx.root_page_id_);
   page_id_t next_page_id;
   auto tree_page = guard.AsMut<BPlusTreePage>();
   while (!tree_page->IsLeafPage()) {
