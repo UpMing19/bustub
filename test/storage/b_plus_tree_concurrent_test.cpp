@@ -114,6 +114,7 @@ void LookupHelper(BPlusTree<GenericKey<8>, RID, GenericComparator<8>> *tree, con
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     std::vector<RID> result;
+    //std::cout<<"查找key："<<key<<std::endl;
     bool res = tree->GetValue(index_key, &result, transaction);
     ASSERT_EQ(res, true);
     ASSERT_EQ(result.size(), 1);
