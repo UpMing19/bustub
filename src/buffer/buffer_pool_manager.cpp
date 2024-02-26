@@ -17,6 +17,7 @@
 
 #include "common/config.h"
 #include "common/exception.h"
+#include "common/logger.h"
 #include "common/macros.h"
 #include "storage/page/page.h"
 #include "storage/page/page_guard.h"
@@ -47,7 +48,6 @@ BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   std::unique_lock<std::mutex> l(latch_);
-
   if (!free_list_.empty()) {
     // debug(free_list_.size());
     auto fr = free_list_.front();
@@ -89,7 +89,9 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
   std::unique_lock<std::mutex> l(latch_);
-
+  if (page_id == INVALID_PAGE_ID) {
+    return nullptr;
+  }
   if (page_table_.find(page_id) == page_table_.end()) {
     // debug(page_id);
     frame_id_t fr;
@@ -132,7 +134,8 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
   std::unique_lock<std::mutex> l(latch_);
   if (page_table_.find(page_id) != page_table_.end()) {
     frame_id_t frame_id = page_table_[page_id];
-    if (pages_[frame_id].pin_count_ == 0) {
+    if (pages_[frame_id].pin_count_ <= 0) {
+      LOG_ERROR("不应该pin count 为0的时候UnpinPage");
       return false;
     }
     pages_[frame_id].pin_count_--;
@@ -175,6 +178,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   if (page_table_.find(page_id) != page_table_.end()) {
     frame_id_t frame_id = page_table_[page_id];
     if (pages_[frame_id].pin_count_ > 0) {
+      LOG_ERROR("删除page时pin不为0 - false!");
       return false;
     }
     replacer_->Remove(frame_id);

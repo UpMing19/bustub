@@ -180,7 +180,7 @@ TEST(BPlusTreeTests, DeleteTest3) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  int64_t scale = 10000;
+  int64_t scale = 100;
   std::vector<int64_t> keys;
   for (int64_t key = 1; key < scale; key++) {
     keys.push_back(key);

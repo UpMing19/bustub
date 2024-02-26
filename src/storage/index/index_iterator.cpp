@@ -32,8 +32,8 @@ auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
   if (pid_ == -1) {
     LOG_ERROR("pid=-1，无效迭代器");
   }
-  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
-  auto node = guard.As<LeafPage>();
+  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
+  auto node = guard.AsMut<LeafPage>();
   KeyType k = node->KeyAt(index_);
   ValueType v = node->ValueAt(index_);
   entry_.first = k;
@@ -47,12 +47,12 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     index_ = 0;
     return *this;
   }
-  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
-  auto node = guard.As<LeafPage>();
+  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
+  auto node = guard.AsMut<LeafPage>();
   if (index_ + 1 < node->GetSize()) {
     index_++;
   } else if (node->GetNextPageId() != -1) {
-    guard = bpm_->FetchPageRead(node->GetNextPageId());
+    guard = bpm_->FetchPageWrite(node->GetNextPageId());
     pid_ = guard.PageId();
     index_ = 0;
   } else {
