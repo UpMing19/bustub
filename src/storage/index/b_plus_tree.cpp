@@ -405,11 +405,11 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
                                        Transaction *txn) {
   if (ctx.write_set_.empty()) {
     if (node->GetSize() == 0) {
-      LOG_INFO("叶节点为根的情况下：nodeSize=0");
+      LOG_INFO("叶节点为根的情况下:nodeSize=0");
       return;
     }
     if (node->GetSize() == 1) {
-      LOG_INFO("叶节点为根的情况下：nodeSize=1,设置rootpageid =-1");
+      LOG_INFO("叶节点为根的情况下:nodeSize=1,设置rootpageid =-1");
       WritePageGuard guard = std::move(ctx.header_page_.value());  //  先持有锁
       ctx.header_page_ = std::nullopt;
       auto head_node = guard.AsMut<BPlusTreeHeaderPage>();
@@ -538,17 +538,8 @@ INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t this_page_id, int delete_index,
                                            std::map<page_id_t, int> index_mp, bustub::Context &ctx,
                                            bustub::Transaction *txn) {
-  for (int i = delete_index; i < node->GetSize() - 1; i++) {
-    node->SetKeyAt(i, node->KeyAt(i + 1));
-    node->SetValueAt(i, node->ValueAt(i + 1));
-  }
-  node->IncreaseSize(-1);
-  if (node->GetSize() >= node->GetMinSize()) {
-    return;
-  }
-
   if (ctx.write_set_.empty()) {
-    if (node->GetSize() == 1) {
+    if (node->GetSize() == 2) {
       LOG_INFO("减少树高");
       auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
 
@@ -565,6 +556,15 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
     }
     node->IncreaseSize(-1);
 
+    return;
+  }
+
+  for (int i = delete_index; i < node->GetSize() - 1; i++) {
+    node->SetKeyAt(i, node->KeyAt(i + 1));
+    node->SetValueAt(i, node->ValueAt(i + 1));
+  }
+  node->IncreaseSize(-1);
+  if (node->GetSize() >= node->GetMinSize()) {
     return;
   }
 

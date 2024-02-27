@@ -314,7 +314,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
     tree.Remove(index_key, transaction);
     // std::cout << tree.DrawBPlusTree() << "\n";
   }
-
+  //std::cout << tree.DrawBPlusTree() << "\n";
   int64_t size = 0;
   bool is_present;
 

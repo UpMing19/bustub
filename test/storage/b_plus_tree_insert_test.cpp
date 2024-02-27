@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cstdio>
 
+#include <random>
 #include "buffer/buffer_pool_manager.h"
 #include "gtest/gtest.h"
 #include "storage/disk/disk_manager_memory.h"
@@ -215,7 +216,14 @@ TEST(BPlusTreeTests, InsertTestwmy) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  std::vector<int64_t> keys = {3, 7, 5, 9, 1};
+  int scale = 1000;
+  std::vector<int64_t> keys = {};
+  for (int i = 1; i <= scale; i++) {
+    keys.push_back(i);
+  }
+  auto rng = std::default_random_engine{};
+  std::shuffle(keys.begin(), keys.end(), rng);
+
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
