@@ -248,7 +248,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
   GenericComparator<8> comparator(key_schema.get());
 
   auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
-  auto *bpm = new BufferPoolManager(50, disk_manager.get());
+  auto *bpm = new BufferPoolManager(9, disk_manager.get());
   // create and fetch header_page
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
@@ -258,15 +258,15 @@ TEST(BPlusTreeTests, DeleteTest4) {
   RID rid;
   // create transaction
   auto *transaction = new Transaction(0);
-
-  int scale = 100;
+  std::srand(static_cast<unsigned int>(std::time(0)));
+  int scale = 16;
   std::vector<int64_t> keys = {};
   for (int i = 1; i <= scale; i++) {
-    keys.push_back(i);
+    keys.push_back(random() % scale + 1);
   }
   auto rng = std::default_random_engine{};
-  std::shuffle(keys.begin(), keys.end(), rng);
-  // keys = {2, 3, 1, 4, 5};
+  //          std::shuffle(keys.begin(), keys.end(), rng);
+  //  keys = {1,2,3,4,5,6,7,8,9,10,100,101,102,103,104,105,106,107,108,109,100};
   std::string log_info;
   log_info = "keys = {";
   for (int elem : keys) {
@@ -282,7 +282,7 @@ TEST(BPlusTreeTests, DeleteTest4) {
     tree.Insert(index_key, rid, transaction);
   }
 
-  // std::cout << tree.DrawBPlusTree() << "\n";
+  std::cout << tree.DrawBPlusTree() << "\n";
 
   std::vector<RID> rids;
   for (auto key : keys) {
@@ -300,21 +300,24 @@ TEST(BPlusTreeTests, DeleteTest4) {
     remove_keys.push_back(random() % scale + 1);
   }
   std::shuffle(remove_keys.begin(), remove_keys.end(), rng);
-  // remove_keys = {3, 2, 4, 1};
+  // remove_keys = {1,2,3,4,5,6,7,8,9,10};
   log_info = "remove_keys = {";
+
   for (int elem : remove_keys) {
     std::string str_elem = std::to_string(elem);
     log_info += ", " + str_elem;
   }
   log_info += "}";
-  // std::cout << log_info << std::endl;
-
+  std::cout << log_info << std::endl;
+  //    int dijilun =1;
   for (auto key : remove_keys) {
     index_key.SetFromInteger(key);
+    debug(key);
     tree.Remove(index_key, transaction);
+    std::cout << tree.DrawBPlusTree() << "\n";
     // std::cout << tree.DrawBPlusTree() << "\n";
   }
-  //std::cout << tree.DrawBPlusTree() << "\n";
+  std::cout << tree.DrawBPlusTree() << "\n";
   int64_t size = 0;
   bool is_present;
 

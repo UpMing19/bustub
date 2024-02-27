@@ -3,6 +3,7 @@
  */
 #include <cassert>
 
+#include "common/exception.h"
 #include "common/logger.h"
 #include "storage/index/b_plus_tree.h"
 #include "storage/index/index_iterator.h"
@@ -15,12 +16,13 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
-INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bufferPoolManager, page_id_t pid, int index) {
-  bpm_ = bufferPoolManager;
-  pid_ = pid;
-  index_ = index;
+INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bufferPoolManager, page_id_t pid, int index, MappingType &entry)
+    : bpm_(bufferPoolManager), pid_(pid), index_(index) {
+  entry_ = entry;
 }
-
+INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, page_id_t page_id, int index)
+    : bpm_(buffer_pool_manager), pid_(page_id), index_(index) {}
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
@@ -28,18 +30,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::IsEnd() -> bool { return pid_ == -1; }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::operator*() -> const MappingType & {
-  if (pid_ == -1) {
-    LOG_ERROR("pid=-1，无效迭代器");
-  }
-  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
-  auto node = guard.AsMut<LeafPage>();
-  KeyType k = node->KeyAt(index_);
-  ValueType v = node->ValueAt(index_);
-  entry_.first = k;
-  entry_.second = v;
-  return entry_;
-}
+auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return entry_; }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
@@ -51,10 +42,15 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
   auto node = guard.AsMut<LeafPage>();
   if (index_ + 1 < node->GetSize()) {
     index_++;
+    entry_.first = node->KeyAt(index_);
+    entry_.second = node->ValueAt(index_);
   } else if (node->GetNextPageId() != -1) {
     guard = bpm_->FetchPageWrite(node->GetNextPageId());
+    node = guard.AsMut<LeafPage>();
     pid_ = guard.PageId();
     index_ = 0;
+    entry_.first = node->KeyAt(index_);
+    entry_.second = node->ValueAt(index_);
   } else {
     pid_ = -1;
     index_ = 0;

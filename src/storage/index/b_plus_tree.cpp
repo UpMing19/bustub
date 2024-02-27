@@ -30,6 +30,7 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
   WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
   auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
   root_page->root_page_id_ = INVALID_PAGE_ID;
+  // LOG_INFO("缓存池大小: pool size = %zu", (size_t)bpm_->GetPoolSize());
 }
 
 /*
@@ -130,12 +131,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   InsertLeafNode(leaf_node, key, value, ctx, txn);
 
-  //  while(!ctx.write_set_.empty())
-  //  {
-  //      WritePageGuard guard = std::move(ctx.write_set_.back()) ;
-  //      guard.Drop();
-  //      ctx.write_set_.pop_back();
-  //  }
+  // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
   return false;
 }
 
@@ -362,10 +358,10 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   (void)ctx;
 
   if (IsEmpty()) {
-    LOG_INFO("树为空，无法Remove");
+    // LOG_INFO("树为空,无法Remove");
     return;
   }
-
+  // LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
   std::map<page_id_t, int> index_mp;
 
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
@@ -374,12 +370,20 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
   WritePageGuard guard = bpm_->FetchPageWrite(ctx.root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
-
+  // int num = 1;
   while (!tree_node->IsLeafPage()) {
     auto internal_node = guard.AsMut<InternalPage>();
     page_id_t value;
 
     int index = internal_node->FindValue(key, value, comparator_);
+    if (internal_node->GetSize() < 2) {
+      // debug(index);
+      // debug(num);
+      // debug(internal_node->GetSize());
+      // DrawBPlusTree();
+      throw Exception("异常:1011");
+    }
+    // num++;
     index_mp[internal_node->ValueAt(index)] = index;
     ctx.write_set_.push_back(std::move(guard));
     guard = bpm_->FetchPageWrite(value);
@@ -458,18 +462,29 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
   int parent_index = (index_mp)[this_page_id];
 
   bool borrow_left = true;
-  auto borrow_node = node;
-  borrow_node = nullptr;
+  LeafPage *borrow_node = nullptr;
 
   if (parent_index == 0) {
+    if (parent_index + 1 >= parent_node->GetSize()) {
+      throw Exception("异常001");
+    }
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
     borrow_node = guard.AsMut<LeafPage>();
     borrow_left = false;
   } else if (parent_index == parent_node->GetSize() - 1) {
+    if (parent_index - 1 < 0) {
+      throw Exception("异常002");
+    }
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
     borrow_node = guard.AsMut<LeafPage>();
     borrow_left = true;
   } else {
+    if (parent_index + 1 >= parent_node->GetSize()) {
+      throw Exception("异常003");
+    }
+    if (parent_index - 1 < 0) {
+      throw Exception("异常004");
+    }
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
     auto node_left = borrow_node = guard.AsMut<LeafPage>();
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
@@ -510,10 +525,14 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
 
     ctx.write_set_.pop_back();
     DeleteInternalNodeKey(parent_node, parent_page_id, delete_up_index, index_mp, ctx, txn);
+
     return;
   }
 
   if (borrow_left) {
+    if (borrow_node->GetSize() - 1 == -1 || borrow_node->GetSize() - 1 >= borrow_node->GetSize()) {
+      throw Exception("异常11111");
+    }
     KeyType borrow_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
     ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
     borrow_node->IncreaseSize(-1);
@@ -523,6 +542,9 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     KeyType borrow_key = borrow_node->KeyAt(0);
     ValueType borrow_value = borrow_node->ValueAt(0);
     for (int i = 1; i < borrow_node->GetSize(); i++) {
+      if (i >= borrow_node->GetSize()) {
+        throw Exception("异常22222");
+      }
       borrow_node->SetKeyAt(i - 1, borrow_node->KeyAt(i));
       borrow_node->SetValueAt(i - 1, borrow_node->ValueAt(i));
     }
@@ -539,6 +561,9 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
                                            std::map<page_id_t, int> index_mp, bustub::Context &ctx,
                                            bustub::Transaction *txn) {
   if (ctx.write_set_.empty()) {
+    if (node->GetSize() == 1) {
+      throw Exception("异常333");
+    }
     if (node->GetSize() == 2) {
       LOG_INFO("减少树高");
       auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
@@ -551,6 +576,9 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
     }
 
     for (int i = delete_index; i < node->GetSize() - 1; i++) {
+      if (i + 1 >= node->GetSize()) {
+        throw Exception("异常444");
+      }
       node->SetKeyAt(i, node->KeyAt(i + 1));
       node->SetValueAt(i, node->ValueAt(i + 1));
     }
@@ -558,8 +586,13 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
 
     return;
   }
-
+  WritePageGuard guard1 = bpm_->FetchPageWrite(this_page_id);
+  auto new_node = guard1.AsMut<InternalPage>();
+  node = new_node;
   for (int i = delete_index; i < node->GetSize() - 1; i++) {
+    if (i + 1 >= node->GetSize()) {
+      throw Exception("异常4444");
+    }
     node->SetKeyAt(i, node->KeyAt(i + 1));
     node->SetValueAt(i, node->ValueAt(i + 1));
   }
@@ -574,20 +607,43 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
   auto parent_node = guard.AsMut<InternalPage>();
 
   int parent_index = (index_mp)[this_page_id];
-
+  //  int old_node_size = node->GetSize();
   bool borrow_left = true;
-  auto borrow_node = node;
-  borrow_node = nullptr;
 
+  InternalPage *borrow_node = nullptr;
+  // std::cout << node->ToString() << std::endl;
+  // debug(&(*node));
   if (parent_index == 0) {
+    if (parent_index + 1 >= parent_node->GetSize()) {
+      throw Exception("异常555");
+    }
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
     borrow_node = guard.AsMut<InternalPage>();
     borrow_left = false;
   } else if (parent_index == parent_node->GetSize() - 1) {
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+    if (parent_index - 1 < 0) {
+      throw Exception("异常666");
+    }
+    page_id_t pid = parent_node->ValueAt(parent_index - 1);
+    WritePageGuard gg = bpm_->FetchPageWrite(pid);
+    guard = std::move(gg);
+    // if (node->GetSize() != old_node_size) {
+    //   debug(&(*node));
+    //   std::cout << node->ToString() << std::endl;
+    //   WritePageGuard guard = bpm_->FetchPageWrite(this_page_id);
+    //   auto new_node = guard.AsMut<InternalPage>();
+    //   debug(new_node->ToString());
+    //   throw Exception("为什么?!");
+    // }
     borrow_node = guard.AsMut<InternalPage>();
     borrow_left = true;
   } else {
+    if (parent_index + 1 >= parent_node->GetSize()) {
+      throw Exception("异常777");
+    }
+    if (parent_index - 1 < 0) {
+      throw Exception("异常888");
+    }
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
     auto node_left = borrow_node = guard.AsMut<InternalPage>();
     guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
@@ -615,9 +671,8 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
         node->SetKeyAt(i, node->KeyAt(i - 1));
         node->SetValueAt(i, node->ValueAt(i - 1));
       }
-      node->IncreaseSize(1);
-
       node->SetValueAt(0, down_value);
+      node->IncreaseSize(1);
 
       parent_node->SetKeyAt(parent_index, up_key);
 
@@ -718,7 +773,9 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
     tree_page = guard.AsMut<BPlusTreePage>();
   }
   next_page_id = guard.PageId();
-  return INDEXITERATOR_TYPE(bpm_, next_page_id, 0);
+  auto leaf_node = guard.AsMut<LeafPage>();
+  MappingType entry = MappingType(leaf_node->KeyAt(0), leaf_node->ValueAt(0));
+  return INDEXITERATOR_TYPE(bpm_, next_page_id, 0, entry);
 }
 
 /*
@@ -743,7 +800,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   page_id_t next_page_id;
   auto tree_page = guard.AsMut<BPlusTreePage>();
   while (!tree_page->IsLeafPage()) {
-    auto internal_node = guard.As<InternalPage>();
+    auto internal_node = guard.AsMut<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
     guard = bpm_->FetchPageWrite(next_page_id);
     tree_page = guard.AsMut<BPlusTreePage>();
@@ -758,8 +815,9 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   if ((comparator_(leaf_node->KeyAt(index), key) != 0)) {
     return End();
   }
+  MappingType entry = MappingType(leaf_node->KeyAt(index), leaf_node->ValueAt(index));
 
-  return INDEXITERATOR_TYPE(bpm_, next_page_id, index);
+  return INDEXITERATOR_TYPE(bpm_, next_page_id, index, entry);
 }
 
 /*
