@@ -53,8 +53,6 @@ auto BPLUSTREE_TYPE::IsEmpty() const -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
-  // Declaration of context instance.
-  // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
 
@@ -98,8 +96,6 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
-  // Declaration of context instance.
-  // pthread_t thread = pthread_self();
   // std::cout << "Thread ID: " << thread << " -- Find | key : " << std::to_string(key.ToString()).c_str() << std::endl;
   Context ctx;
   (void)ctx;
@@ -109,7 +105,6 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   if (head_page->root_page_id_ == INVALID_PAGE_ID) {
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
     auto leaf_node = guard.AsMut<LeafPage>();
-    guard.Drop();
     ctx.root_page_id_ = head_page->root_page_id_;
     leaf_node->Init(leaf_max_size_);
   }
@@ -169,7 +164,6 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
   auto new_leaf_node = guard.AsMut<LeafPage>();
   new_leaf_node->Init(leaf_max_size_);
-  guard.Drop();
   bool put_left = false;
 
   for (int i = node->GetMinSize() - 1; i < node->GetMinSize(); i++) {
@@ -247,7 +241,6 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
   auto new_internal_node = guard.AsMut<InternalPage>();
-  guard.Drop();
   new_internal_node->Init(internal_max_size_);
   new_internal_node->IncreaseSize(1);
   int num = 0;
@@ -297,7 +290,6 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
 
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
     auto new_root_node = guard.AsMut<InternalPage>();
-    guard.Drop();
     ctx.header_page_ = std::move(head_page_guard);
     ctx.root_page_id_ = head_page->root_page_id_;
 
@@ -358,7 +350,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   (void)ctx;
 
   if (IsEmpty()) {
-    // LOG_INFO("树为空,无法Remove");
     return;
   }
   // LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
@@ -377,10 +368,6 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
 
     int index = internal_node->FindValue(key, value, comparator_);
     if (internal_node->GetSize() < 2) {
-      // debug(index);
-      // debug(num);
-      // debug(internal_node->GetSize());
-      // DrawBPlusTree();
       throw Exception("异常:1011");
     }
     // num++;
@@ -391,22 +378,26 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   }
   auto leaf_node = guard.AsMut<LeafPage>();
   page_id_t this_page_id = guard.PageId();
+  ctx.write_set_.push_back(std::move(guard));
+
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
 
   if (index != -1 && (comparator_(leaf_node->KeyAt(index), key) == 0)) {
     value = leaf_node->ValueAt(index);
   } else {
-    //    LOG_INFO("删除失败 , 没有这个key");
     return;
   }
-  DeleteLeafNodeKey(leaf_node, this_page_id, key, value, index_mp, ctx, txn);
+  DeleteLeafNodeKey(this_page_id, key, index_mp, ctx, txn);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, const KeyType &key,
-                                       const ValueType &value, std::map<page_id_t, int> index_mp, Context &ctx,
-                                       Transaction *txn) {
+void BPLUSTREE_TYPE::DeleteLeafNodeKey(page_id_t this_page_id, const KeyType &key, std::map<page_id_t, int> index_mp,
+                                       Context &ctx, Transaction *txn) {
+  WritePageGuard cur_guard = std::move(ctx.write_set_.back());
+  ctx.write_set_.pop_back();
+  auto node = cur_guard.AsMut<LeafPage>();
+
   if (ctx.write_set_.empty()) {
     if (node->GetSize() == 0) {
       LOG_INFO("叶节点为根的情况下:nodeSize=0");
@@ -426,11 +417,9 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     ValueType v;
     index = node->FindValue(key, v, comparator_);
     if (index == -1) {
-      // LOG_INFO("叶节点为根的情况下：nodeSize>1,没有key");
       return;
     }
     if (index == -1 || (comparator_(node->KeyAt(index), key) != 0)) {
-      // LOG_INFO("叶节点为根的情况下：nodeSize>1,没有key");
       return;
     }
     for (int i = index; i < node->GetSize() - 1; i++) {
@@ -456,9 +445,8 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
 
   // 2.两侧节点可以安全删除一个 就借一个
   WritePageGuard &guard = ctx.write_set_.back();
-  int parent_page_id = guard.PageId();
+  page_id_t parent_page_id = guard.PageId();
   auto parent_node = guard.AsMut<InternalPage>();
-
   int parent_index = (index_mp)[this_page_id];
 
   bool borrow_left = true;
@@ -468,15 +456,15 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     if (parent_index + 1 >= parent_node->GetSize()) {
       throw Exception("异常001");
     }
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
-    borrow_node = guard.AsMut<LeafPage>();
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+    borrow_node = guard1.AsMut<LeafPage>();
     borrow_left = false;
   } else if (parent_index == parent_node->GetSize() - 1) {
     if (parent_index - 1 < 0) {
       throw Exception("异常002");
     }
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
-    borrow_node = guard.AsMut<LeafPage>();
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+    borrow_node = guard1.AsMut<LeafPage>();
     borrow_left = true;
   } else {
     if (parent_index + 1 >= parent_node->GetSize()) {
@@ -485,10 +473,10 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     if (parent_index - 1 < 0) {
       throw Exception("异常004");
     }
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
-    auto node_left = borrow_node = guard.AsMut<LeafPage>();
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
-    auto node_right = borrow_node = guard.AsMut<LeafPage>();
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+    auto node_left = borrow_node = guard1.AsMut<LeafPage>();
+    WritePageGuard guard2 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+    auto node_right = borrow_node = guard2.AsMut<LeafPage>();
     if (node_left->GetSize() >= node_right->GetSize()) {
       borrow_node = node_left;
       borrow_left = true;
@@ -523,8 +511,7 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
     node->SetNextPageId(next_page_id);
     node->IncreaseSize(num);
 
-    ctx.write_set_.pop_back();
-    DeleteInternalNodeKey(parent_node, parent_page_id, delete_up_index, index_mp, ctx, txn);
+    DeleteInternalNodeKey(parent_page_id, delete_up_index, index_mp, ctx, txn);
 
     return;
   }
@@ -557,9 +544,13 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(LeafPage *node, page_id_t this_page_id, c
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t this_page_id, int delete_index,
+void BPLUSTREE_TYPE::DeleteInternalNodeKey(bustub::page_id_t this_page_id, int delete_index,
                                            std::map<page_id_t, int> index_mp, bustub::Context &ctx,
                                            bustub::Transaction *txn) {
+  WritePageGuard cur_guard = std::move(ctx.write_set_.back());
+  ctx.write_set_.pop_back();
+  auto node = cur_guard.AsMut<InternalPage>();
+
   if (ctx.write_set_.empty()) {
     if (node->GetSize() == 1) {
       throw Exception("异常333");
@@ -586,9 +577,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
 
     return;
   }
-  WritePageGuard guard1 = bpm_->FetchPageWrite(this_page_id);
-  auto new_node = guard1.AsMut<InternalPage>();
-  node = new_node;
+
   for (int i = delete_index; i < node->GetSize() - 1; i++) {
     if (i + 1 >= node->GetSize()) {
       throw Exception("异常4444");
@@ -603,7 +592,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
 
   // 2.两侧节点可以安全删除一个 就借一个
   WritePageGuard &guard = ctx.write_set_.back();
-  int parent_page_id = guard.PageId();
+  page_id_t parent_page_id = guard.PageId();
   auto parent_node = guard.AsMut<InternalPage>();
 
   int parent_index = (index_mp)[this_page_id];
@@ -611,31 +600,21 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
   bool borrow_left = true;
 
   InternalPage *borrow_node = nullptr;
-  // std::cout << node->ToString() << std::endl;
-  // debug(&(*node));
+
   if (parent_index == 0) {
     if (parent_index + 1 >= parent_node->GetSize()) {
       throw Exception("异常555");
     }
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
-    borrow_node = guard.AsMut<InternalPage>();
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+    borrow_node = guard1.AsMut<InternalPage>();
     borrow_left = false;
   } else if (parent_index == parent_node->GetSize() - 1) {
     if (parent_index - 1 < 0) {
       throw Exception("异常666");
     }
-    page_id_t pid = parent_node->ValueAt(parent_index - 1);
-    WritePageGuard gg = bpm_->FetchPageWrite(pid);
-    guard = std::move(gg);
-    // if (node->GetSize() != old_node_size) {
-    //   debug(&(*node));
-    //   std::cout << node->ToString() << std::endl;
-    //   WritePageGuard guard = bpm_->FetchPageWrite(this_page_id);
-    //   auto new_node = guard.AsMut<InternalPage>();
-    //   debug(new_node->ToString());
-    //   throw Exception("为什么?!");
-    // }
-    borrow_node = guard.AsMut<InternalPage>();
+
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+    borrow_node = guard1.AsMut<InternalPage>();
     borrow_left = true;
   } else {
     if (parent_index + 1 >= parent_node->GetSize()) {
@@ -644,10 +623,10 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
     if (parent_index - 1 < 0) {
       throw Exception("异常888");
     }
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
-    auto node_left = borrow_node = guard.AsMut<InternalPage>();
-    guard = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
-    auto node_right = borrow_node = guard.AsMut<InternalPage>();
+    WritePageGuard guard1 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index - 1));
+    auto node_left = borrow_node = guard1.AsMut<InternalPage>();
+    WritePageGuard guard2 = bpm_->FetchPageWrite(parent_node->ValueAt(parent_index + 1));
+    auto node_right = borrow_node = guard2.AsMut<InternalPage>();
     if (node_left->GetSize() >= node_right->GetSize()) {
       borrow_node = node_left;
       borrow_left = true;
@@ -714,8 +693,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
     node->IncreaseSize(num);
 
     int delete_index_in_parent = parent_index + 1;
-    ctx.write_set_.pop_back();
-    DeleteInternalNodeKey(parent_node, parent_page_id, delete_index_in_parent, index_mp, ctx, txn);
+    DeleteInternalNodeKey(parent_page_id, delete_index_in_parent, index_mp, ctx, txn);
 
   } else {
     auto temp = node;
@@ -737,8 +715,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(InternalPage *node, bustub::page_id_t
     node->IncreaseSize(num);
 
     int delete_index_in_parent = parent_index;
-    ctx.write_set_.pop_back();
-    DeleteInternalNodeKey(parent_node, parent_page_id, delete_index_in_parent, index_mp, ctx, txn);
+    DeleteInternalNodeKey(parent_page_id, delete_index_in_parent, index_mp, ctx, txn);
   }
 }
 
