@@ -33,7 +33,7 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   GenericComparator<8> comparator(key_schema.get());
 
   auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
-  auto *bpm = new BufferPoolManager(30, disk_manager.get());
+  auto *bpm = new BufferPoolManager(50, disk_manager.get());
 
   // create and fetch header_page
   page_id_t page_id;
@@ -47,7 +47,7 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   // create transaction
   auto *transaction = new Transaction(0);
 
-  int64_t scale = 5000;
+  int64_t scale = 1000;
   std::vector<int64_t> keys;
   for (int64_t key = 1; key < scale; key++) {
     keys.push_back(key);
@@ -56,12 +56,26 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   // randomized the insertion order
   auto rng = std::default_random_engine{};
   std::shuffle(keys.begin(), keys.end(), rng);
+
+  std::string log_info;
+  log_info = "keys = {";
+  for (int elem : keys) {
+    std::string str_elem = std::to_string(elem);
+    log_info += " ," + str_elem;
+  }
+  log_info += "}";
+ // std::cout << log_info << std::endl;
+
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
+   // LOG_INFO("key = %d", (int)key);
     tree.Insert(index_key, rid, transaction);
+  //  std::cout << tree.DrawBPlusTree() << std::endl;
   }
+//  std::cout << tree.DrawBPlusTree() << std::endl;
+
   //     std::cout << tree.DrawBPlusTree() << "\n";
   std::vector<RID> rids;
   for (auto key : keys) {
