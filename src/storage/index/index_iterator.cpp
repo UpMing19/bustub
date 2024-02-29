@@ -27,7 +27,11 @@ INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
 INDEX_TEMPLATE_ARGUMENTS
-auto INDEXITERATOR_TYPE::IsEnd() -> bool { return pid_ == -1; }
+auto INDEXITERATOR_TYPE::IsEnd() -> bool {
+  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
+  auto node = guard.As<LeafPage>();
+  return node->GetNextPageId() == INVALID_PAGE_ID && index_ == node->GetSize() - 1;
+}
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator*() -> const MappingType & { return entry_; }
@@ -38,15 +42,15 @@ auto INDEXITERATOR_TYPE::operator++() -> INDEXITERATOR_TYPE & {
     index_ = 0;
     return *this;
   }
-  WritePageGuard guard = bpm_->FetchPageWrite(pid_);
-  auto node = guard.AsMut<LeafPage>();
+  ReadPageGuard guard = bpm_->FetchPageRead(pid_);
+  auto node = guard.As<LeafPage>();
   if (index_ + 1 < node->GetSize()) {
     index_++;
     entry_.first = node->KeyAt(index_);
     entry_.second = node->ValueAt(index_);
   } else if (node->GetNextPageId() != -1) {
-    guard = bpm_->FetchPageWrite(node->GetNextPageId());
-    node = guard.AsMut<LeafPage>();
+    guard = bpm_->FetchPageRead(node->GetNextPageId());
+    node = guard.As<LeafPage>();
     pid_ = guard.PageId();
     index_ = 0;
     entry_.first = node->KeyAt(index_);

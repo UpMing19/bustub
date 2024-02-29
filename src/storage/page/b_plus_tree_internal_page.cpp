@@ -59,7 +59,7 @@ auto B_PLUS_TREE_INTERNAL_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   ValueType v;
   if (index < 0 || index >= GetSize()) {
     std::cout << "##" << index << std::endl;
-    throw Exception("2index不在范围内");
+    throw Exception("3index不在范围内");
   }
   v = array_[index].second;
   return v;

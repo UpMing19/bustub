@@ -75,6 +75,7 @@ class BPlusTree {
   auto IsEmpty() const -> bool;
 
   // Insert a key-value pair into this B+ tree.
+  auto HappyInsert(const KeyType &key, const ValueType &value, Transaction *txn = nullptr) -> bool;
   auto Insert(const KeyType &key, const ValueType &value, Transaction *txn = nullptr) -> bool;
 
   // Insert a key-value pair into this B+ tree.
@@ -90,6 +91,7 @@ class BPlusTree {
       -> void;
 
   // Remove a key and its value from this B+ tree.
+  auto HappyRemove(const KeyType &key, Transaction *txn) -> int;
   void Remove(const KeyType &key, Transaction *txn);
 
   void DeleteLeafNodeKey(page_id_t this_page_id, const KeyType &key, std::map<page_id_t, int> index_mp, Context &ctx,
