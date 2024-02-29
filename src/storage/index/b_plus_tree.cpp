@@ -1,6 +1,5 @@
 #include "storage/index/b_plus_tree.h"
 #include <cstddef>
-#include <mutex>  // NOLINT
 #include <optional>
 #include <sstream>
 #include <string>
