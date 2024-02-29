@@ -64,17 +64,17 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
     log_info += " ," + str_elem;
   }
   log_info += "}";
- // std::cout << log_info << std::endl;
+  // std::cout << log_info << std::endl;
 
   for (auto key : keys) {
     int64_t value = key & 0xFFFFFFFF;
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
-   // LOG_INFO("key = %d", (int)key);
+    // LOG_INFO("key = %d", (int)key);
     tree.Insert(index_key, rid, transaction);
-  //  std::cout << tree.DrawBPlusTree() << std::endl;
+    //  std::cout << tree.DrawBPlusTree() << std::endl;
   }
-//  std::cout << tree.DrawBPlusTree() << std::endl;
+  //  std::cout << tree.DrawBPlusTree() << std::endl;
 
   //     std::cout << tree.DrawBPlusTree() << "\n";
   std::vector<RID> rids;

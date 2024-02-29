@@ -116,21 +116,16 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   while (!tree_node->IsLeafPage()) {
     auto internal_node = guard.AsMut<InternalPage>();
-    page_id_t value;
-    internal_node->FindValue(key, value, comparator_);
+    page_id_t v;
+    internal_node->FindValue(key, v, comparator_);
     ctx.write_set_.push_back(std::move(guard));
-    guard = bpm_->FetchPageWrite(value);
+    guard = bpm_->FetchPageWrite(v);
     tree_node = guard.AsMut<BPlusTreePage>();
   }
 
   auto leaf_node = guard.AsMut<LeafPage>();
 
   InsertLeafNode(leaf_node, key, value, ctx, txn);
-  while (!ctx.write_set_.empty()) {
-    WritePageGuard g = std::move(ctx.write_set_.back());
-    g.Drop();
-    ctx.write_set_.pop_back();
-  }
   // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
   return false;
 }
@@ -145,7 +140,6 @@ auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const Va
     return;
   }
   if (node->GetSize() + 1 == node->GetMaxSize()) {
-    // 分裂
     SplitLeafNode(node, key, value, ctx, txn);
   } else {
     index = node->FindValue(key, v, comparator_);
@@ -323,13 +317,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     int index = -1;
     page_id_t v;
     index = internal_node->FindValue(key, v, comparator_);
-    
-    if (index == -1) {
-      index = internal_node->GetSize();
-    }
-    if (comparator_(key, internal_node->KeyAt(index)) >= 0) {
-      index++;
-    }
+    index++;
     internal_node->IncreaseSize(1);
     for (int i = internal_node->GetSize() - 1; i > index; i--) {
       internal_node->SetKeyAt(i, internal_node->KeyAt(i - 1));
@@ -571,6 +559,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(bustub::page_id_t this_page_id, int d
       ctx.root_page_id_ = node->ValueAt(0);
 
       node->IncreaseSize(-1);
+      cur_guard.Drop();
       return;
     }
 

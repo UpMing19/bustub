@@ -369,12 +369,12 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
   (void)header_page;
 
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator,2,3);
 
   // Add perserved_keys
   std::vector<int64_t> perserved_keys;
   std::vector<int64_t> dynamic_keys;
-  int64_t total_keys = 50;
+  int64_t total_keys = 66;
   int64_t sieve = 5;
   for (int64_t i = 1; i <= total_keys; i++) {
     if (i % sieve == 0) {

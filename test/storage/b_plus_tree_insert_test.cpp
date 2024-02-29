@@ -86,7 +86,7 @@ TEST(BPlusTreeTests, InsertTest2) {
   std::srand(static_cast<unsigned int>(std::time(0)));
 
   std::vector<int64_t> keys = {};
-  int scale = 8;
+  int scale = 80;
   for (int i = 1; i <= scale; i++) {
     keys.push_back(std::rand() % scale + 1);
   }
