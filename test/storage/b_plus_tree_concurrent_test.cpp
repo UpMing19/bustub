@@ -185,7 +185,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   // keys to Insert
   std::vector<int64_t> keys;
   std::vector<int64_t> keys2;
-  int64_t scale_factor = 5;
+  int64_t scale_factor = 66;
   for (int64_t key = 1; key < scale_factor; key++) {
     keys.push_back(key);
   }
@@ -194,13 +194,14 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   }
   auto insert_task = [&](int tid) { InsertHelper(&tree, keys2, tid); };
   auto insert_task2 = [&](int tid) { InsertHelper(&tree, keys, tid); };
+ //       auto get_task = [&](int tid) { LookupHelper(&tree, keys, tid); };
 
   std::vector<std::thread> threads;
   std::vector<std::function<void(int)>> tasks;
   tasks.emplace_back(insert_task);
   tasks.emplace_back(insert_task2);
-
-  size_t num_threads = 6;
+ //       tasks.emplace_back(get_task);
+  size_t num_threads = 9;
   for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back(tasks[i % tasks.size()], i);
   }

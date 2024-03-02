@@ -41,13 +41,13 @@ TEST(BPlusTreeTests, ScaleTest) {  // NOLINT
   (void)header_page;
 
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator, 2, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
   GenericKey<8> index_key;
   RID rid;
   // create transaction
   auto *transaction = new Transaction(0);
 
-  int64_t scale = 1000;
+  int64_t scale = 600000;
   std::vector<int64_t> keys;
   for (int64_t key = 1; key < scale; key++) {
     keys.push_back(key);

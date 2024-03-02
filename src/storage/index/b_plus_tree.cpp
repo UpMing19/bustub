@@ -54,7 +54,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   Context ctx;
   (void)ctx;
-
+  LOG_INFO("Get key : %s", std::to_string(key.ToString()).c_str());
   if (GetRootPageId() == INVALID_PAGE_ID) {
     return false;
   }
@@ -138,7 +138,6 @@ auto BPLUSTREE_TYPE::HappyInsert(const KeyType &key, const ValueType &value, Tra
   }
   node->SetKeyAt(index, key);
   node->SetValueAt(index, value);
-  lead_page_guard.Drop();
   return true;
 }
 
@@ -147,10 +146,10 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   // std::cout << "Thread ID: " << thread << " -- Find | key : " << std::to_string(key.ToString()).c_str() << std::endl;
   Context ctx;
   (void)ctx;
-
-  if (HappyInsert(key, value, txn)) {
-    return true;
-  }
+  LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
+  // if (HappyInsert(key, value, txn)) {
+  //   return true;
+  // }
 
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
   auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
@@ -253,7 +252,6 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   node->SetNextPageId(pid);
 
   InsertParent(new_leaf_node->KeyAt(0), pid, ctx, txn);
-  guard.Drop();
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -330,7 +328,6 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
   }
 
   InsertParent(up_key, pid, ctx);
-  guard.Drop();
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -355,8 +352,6 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
 
     new_root_node->SetKeyAt(0, KeyType{});
     new_root_node->SetValueAt(0, old_root_page_id);
-
-    guard.Drop();
     return;
   }
 
@@ -379,7 +374,6 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     internal_node->SetKeyAt(index, key);
     internal_node->SetValueAt(index, value);
   }
-  guard.Drop();
 }
 /*****************************************************************************
  * REMOVE
@@ -444,7 +438,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
-
+  LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
   // int flag = HappyRemove(key, txn);
   // if (flag == 2 || flag == 1 || flag == 0) {  // key不存在  或者 空树
   //   return;
