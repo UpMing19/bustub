@@ -181,10 +181,11 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   page_id_t page_id;
   auto header_page = bpm->NewPage(&page_id);
   // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator, 2, 3);
+  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", header_page->GetPageId(), bpm, comparator,4,4);
   // keys to Insert
   std::vector<int64_t> keys;
   std::vector<int64_t> keys2;
+  std::vector<int64_t> keys3;
   int64_t scale_factor = 66;
   for (int64_t key = 1; key < scale_factor; key++) {
     keys.push_back(key);
@@ -192,16 +193,23 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   for (int64_t key = scale_factor; key < 2 * scale_factor; key++) {
     keys2.push_back(key);
   }
+        for (int64_t key = 10; key < 100; key++) {
+            keys3.push_back(key);
+        }
   auto insert_task = [&](int tid) { InsertHelper(&tree, keys2, tid); };
   auto insert_task2 = [&](int tid) { InsertHelper(&tree, keys, tid); };
+  auto insert_task3 = [&](int tid) { InsertHelper(&tree, keys3, tid); };
+  auto insert_task4 = [&](int tid) { InsertHelper(&tree, keys3, tid); };
  //       auto get_task = [&](int tid) { LookupHelper(&tree, keys, tid); };
 
   std::vector<std::thread> threads;
   std::vector<std::function<void(int)>> tasks;
   tasks.emplace_back(insert_task);
   tasks.emplace_back(insert_task2);
+  tasks.emplace_back(insert_task3);
+  tasks.emplace_back(insert_task4);
  //       tasks.emplace_back(get_task);
-  size_t num_threads = 9;
+  size_t num_threads = 16;
   for (size_t i = 0; i < num_threads; i++) {
     threads.emplace_back(tasks[i % tasks.size()], i);
   }

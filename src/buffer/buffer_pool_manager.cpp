@@ -63,6 +63,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   frame_id_t fr = -1;
   bool res = replacer_->Evict(&fr);
   if (!res || fr == -1) {
+    *page_id = INVALID_PAGE_ID;
     return nullptr;
   }
 

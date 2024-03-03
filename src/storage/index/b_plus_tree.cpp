@@ -160,8 +160,15 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     auto leaf_node = guard1.AsMut<LeafPage>();
     ctx.root_page_id_ = head_page->root_page_id_;
     leaf_node->Init(leaf_max_size_);
+    leaf_node->IncreaseSize(1);
+    leaf_node->SetKeyAt(0, key);
+    leaf_node->SetValueAt(0, value);
+    return true;
   }
   ctx.root_page_id_ = head_page->root_page_id_;
+
+  ctx.write_set_.push_back(std::move(ctx.header_page_.value()));
+  ctx.header_page_ = std::nullopt;
 
   WritePageGuard guard = bpm_->FetchPageWrite(head_page->root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
@@ -176,7 +183,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
 
   auto leaf_node = guard.AsMut<LeafPage>();
-
+  ctx.write_set_.push_back(std::move(guard));
   InsertLeafNode(leaf_node, key, value, ctx, txn);
   // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
   return false;
@@ -233,7 +240,20 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
     }
     new_leaf_node->IncreaseSize(num);
     node->IncreaseSize(-num);
-    InsertLeafNode(node, key, value, ctx, txn);
+    // InsertLeafNode(node, key, value, ctx, txn);
+    ValueType v;
+    int index = node->FindValue(key, v, comparator_);
+    if (index == -1) {
+      index = node->GetSize();
+    }
+    node->IncreaseSize(1);
+    for (int i = node->GetSize() - 1; i > index; i--) {
+      node->SetKeyAt(i, node->KeyAt(i - 1));
+      node->SetValueAt(i, node->ValueAt(i - 1));
+    }
+    node->SetKeyAt(index, key);
+    node->SetValueAt(index, value);
+
   } else {
     int mid = node->GetMinSize() - 1;
     int num = 0;
@@ -244,7 +264,19 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
     }
     new_leaf_node->IncreaseSize(num);
     node->IncreaseSize(-num);
-    InsertLeafNode(new_leaf_node, key, value, ctx, txn);
+
+    ValueType v;
+    int index = new_leaf_node->FindValue(key, v, comparator_);
+    if (index == -1) {
+      index = new_leaf_node->GetSize();
+    }
+    new_leaf_node->IncreaseSize(1);
+    for (int i = new_leaf_node->GetSize() - 1; i > index; i--) {
+      new_leaf_node->SetKeyAt(i, new_leaf_node->KeyAt(i - 1));
+      new_leaf_node->SetValueAt(i, new_leaf_node->ValueAt(i - 1));
+    }
+    new_leaf_node->SetKeyAt(index, key);
+    new_leaf_node->SetValueAt(index, value);
   }
 
   page_id_t nxt = node->GetNextPageId();
@@ -332,17 +364,19 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
-  if (ctx.write_set_.empty()) {
+  page_id_t cur_page_id = ctx.write_set_.back().PageId();
+  if (ctx.IsRootPage(cur_page_id)) {
     page_id_t old_root_page_id = ctx.root_page_id_;
 
-    WritePageGuard head_page_guard = std::move(ctx.header_page_.value());  //  先持有锁
-    ctx.header_page_ = std::nullopt;
+    WritePageGuard &head_page_guard = ctx.write_set_.front();
     auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
 
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
-    auto new_root_node = guard.AsMut<InternalPage>();
-    ctx.header_page_ = std::move(head_page_guard);
     ctx.root_page_id_ = head_page->root_page_id_;
+    guard.Drop();
+
+    WritePageGuard new_root_guard = bpm_->FetchPageWrite(head_page->root_page_id_);
+    auto new_root_node = new_root_guard.AsMut<InternalPage>();
 
     new_root_node->Init(internal_max_size_);
     new_root_node->IncreaseSize(1);
@@ -352,11 +386,12 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
 
     new_root_node->SetKeyAt(0, KeyType{});
     new_root_node->SetValueAt(0, old_root_page_id);
+    ctx.write_set_.clear();
     return;
   }
-
-  WritePageGuard guard = std::move(ctx.write_set_.back());
   ctx.write_set_.pop_back();
+  WritePageGuard &guard = ctx.write_set_.back();
+
   auto internal_node = guard.AsMut<InternalPage>();
 
   if (internal_node->GetSize() == internal_node->GetMaxSize()) {
