@@ -109,7 +109,6 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   if (head_page->root_page_id_ == INVALID_PAGE_ID) {
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
-    guard.Drop();
     WritePageGuard guard1 = bpm_->FetchPageWrite(head_page->root_page_id_);
     auto leaf_node = guard1.AsMut<LeafPage>();
     ctx.root_page_id_ = head_page->root_page_id_;
@@ -121,8 +120,8 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   }
   ctx.root_page_id_ = head_page->root_page_id_;
 
-  ctx.write_set_.push_back(std::move(ctx.header_page_.value()));
-  ctx.header_page_ = std::nullopt;
+  //ctx.write_set_.push_back(std::move(ctx.header_page_.value()));
+  //ctx.header_page_ = std::nullopt;
 
   WritePageGuard guard = bpm_->FetchPageWrite(head_page->root_page_id_);
   auto tree_node = guard.AsMut<BPlusTreePage>();
@@ -174,7 +173,6 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
                                    Transaction *txn) -> void {
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
-  guard.Drop();
   WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
   auto new_leaf_node = w_guard.AsMut<LeafPage>();
   new_leaf_node->Init(leaf_max_size_);
@@ -238,7 +236,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   page_id_t nxt = node->GetNextPageId();
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
-  InsertParent(new_leaf_node->KeyAt(0), pid, std::move(w_guard),ctx, txn);
+  InsertParent(new_leaf_node->KeyAt(0), pid, std::move(w_guard), ctx, txn);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -278,7 +276,6 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
   // 3.创建一个新node，并移动一半数据过去
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
-  guard.Drop();
   WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
   auto new_internal_node = w_guard.AsMut<InternalPage>();
   new_internal_node->Init(internal_max_size_);
@@ -316,24 +313,24 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
     new_internal_node->SetValueAt(0, up_key_value);
   }
 
-  InsertParent(up_key, pid, std::move(w_guard),ctx);
+  InsertParent(up_key, pid, std::move(w_guard), ctx);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value,WritePageGuard &&new_guard, Context &ctx, Transaction *txn) -> void {
-  page_id_t cur_page_id = ctx.write_set_.back().PageId();
-  if (ctx.IsRootPage(cur_page_id)) {
+auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, WritePageGuard &&new_guard, Context &ctx,
+                                  Transaction *txn) -> void {
+  //page_id_t cur_page_id = ctx.write_set_.back().PageId();
+  if (ctx.write_set_.size() == 1 ) {
     page_id_t old_root_page_id = ctx.root_page_id_;
 
-    WritePageGuard &head_page_guard = ctx.write_set_.front();
-    auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
+
+    auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
 
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
-      guard.Drop();
     WritePageGuard new_root_guard = bpm_->FetchPageWrite(head_page->root_page_id_);
     ctx.root_page_id_ = head_page->root_page_id_;
     auto new_root_node = new_root_guard.AsMut<InternalPage>();
-
+    ctx.header_page_ = std::move(new_root_guard);
     new_root_node->Init(internal_max_size_);
     new_root_node->IncreaseSize(1);
     new_root_node->IncreaseSize(1);
@@ -762,7 +759,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(bustub::page_id_t this_page_id, int d
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
+   throw Exception("暂时不实现迭代器，查看是否是死锁原因");
 
   ReadPageGuard head_guard = bpm_->FetchPageRead(header_page_id_);
   auto head_node = head_guard.As<BPlusTreeHeaderPage>();
@@ -792,7 +789,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
+    throw Exception("暂时不实现迭代器，查看是否是死锁原因");
 
   ReadPageGuard head_gurad = bpm_->FetchPageRead(header_page_id_);
   auto head_node = head_gurad.As<BPlusTreeHeaderPage>();
@@ -831,7 +828,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
+   throw Exception("暂时不实现迭代器，查看是否是死锁原因");
   Context ctx;
   return INDEXITERATOR_TYPE(bpm_, -1, 0);
 }

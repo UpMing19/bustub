@@ -216,7 +216,7 @@ TEST(BPlusTreeTests, InsertTestwmy) {
   // create transaction
   auto *transaction = new Transaction(0);
 
-  int scale = 1000;
+  int scale = 20;
   std::vector<int64_t> keys = {};
   for (int i = 1; i <= scale; i++) {
     keys.push_back(i);

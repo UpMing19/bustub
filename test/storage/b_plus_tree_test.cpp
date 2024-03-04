@@ -49,15 +49,15 @@ TEST(BPlusTreeTests, DeleteTest1) {
   }
 
   std::vector<RID> rids;
-   for (auto key : keys) {
-     rids.clear();
-     index_key.SetFromInteger(key);
-     tree.GetValue(index_key, &rids);
-     EXPECT_EQ(rids.size(), 1);
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    tree.GetValue(index_key, &rids);
+    EXPECT_EQ(rids.size(), 1);
 
-     int64_t value = key & 0xFFFFFFFF;
-     EXPECT_EQ(rids[0].GetSlotNum(), value);
-   }
+    int64_t value = key & 0xFFFFFFFF;
+    EXPECT_EQ(rids[0].GetSlotNum(), value);
+  }
 
   std::vector<int64_t> remove_keys = {1, 2, 3, 4};
   for (auto key : remove_keys) {
@@ -66,26 +66,26 @@ TEST(BPlusTreeTests, DeleteTest1) {
     std::cout << tree.DrawBPlusTree() << "\n";
   }
 
-   int64_t size = 0;
-   bool is_present;
+  int64_t size = 0;
+  bool is_present;
 
-   for (auto key : keys) {
-     rids.clear();
-     index_key.SetFromInteger(key);
-     is_present = tree.GetValue(index_key, &rids);
+  for (auto key : keys) {
+    rids.clear();
+    index_key.SetFromInteger(key);
+    is_present = tree.GetValue(index_key, &rids);
 
-     if (!is_present) {
-       EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
-     } else {
-       EXPECT_EQ(rids.size(), 1);
-       EXPECT_EQ(rids[0].GetPageId(), 0);
-       EXPECT_EQ(rids[0].GetSlotNum(), key);
-       size = size + 1;
-     }
-   }
+    if (!is_present) {
+      EXPECT_NE(std::find(remove_keys.begin(), remove_keys.end(), key), remove_keys.end());
+    } else {
+      EXPECT_EQ(rids.size(), 1);
+      EXPECT_EQ(rids[0].GetPageId(), 0);
+      EXPECT_EQ(rids[0].GetSlotNum(), key);
+      size = size + 1;
+    }
+  }
 
-   EXPECT_EQ(size, 2);
-   tree.Print(bpm);
+  EXPECT_EQ(size, 2);
+  tree.Print(bpm);
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete transaction;
   delete bpm;
