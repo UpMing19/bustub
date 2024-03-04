@@ -23,6 +23,7 @@ INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bufferPoolManager, page_id_
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *buffer_pool_manager, page_id_t page_id, int index)
     : bpm_(buffer_pool_manager), pid_(page_id), index_(index) {}
+
 INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::~IndexIterator() = default;  // NOLINT
 
@@ -70,6 +71,7 @@ auto INDEXITERATOR_TYPE::operator==(const IndexIterator &that) -> bool {
 
 INDEX_TEMPLATE_ARGUMENTS
 auto INDEXITERATOR_TYPE::operator!=(const IndexIterator &that) -> bool {
+  return !(*this == that);
   return ((pid_ != that.pid_) || (index_ != that.index_));
 }
 

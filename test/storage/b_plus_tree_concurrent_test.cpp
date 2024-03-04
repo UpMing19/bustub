@@ -186,7 +186,7 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   std::vector<int64_t> keys;
   std::vector<int64_t> keys2;
   std::vector<int64_t> keys3;
-  int64_t scale_factor = 66;
+  int64_t scale_factor = 100;
   for (int64_t key = 1; key < scale_factor; key++) {
     keys.push_back(key);
   }

@@ -98,58 +98,11 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
  */
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::HappyInsert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
-  ReadPageGuard head_guard = bpm_->FetchPageRead(header_page_id_);
-  auto head_node = head_guard.As<BPlusTreeHeaderPage>();
-
-  if (head_node->root_page_id_ == INVALID_PAGE_ID) {
-    return false;
-  }
-  ReadPageGuard guard = bpm_->FetchPageRead(head_node->root_page_id_);
-
-  page_id_t next_page_id;
-  auto tree_page = guard.As<BPlusTreePage>();
-
-  while (!tree_page->IsLeafPage()) {
-    auto internal_node = guard.As<InternalPage>();
-    internal_node->FindValue(key, next_page_id, comparator_);
-    guard = bpm_->FetchPageRead(next_page_id);
-    tree_page = guard.As<BPlusTreePage>();
-  }
-  if (!tree_page->IsInsertSafe()) {
-    return false;
-  }
-  page_id_t leaf_page_id = guard.PageId();
-  guard.Drop();
-  WritePageGuard lead_page_guard = bpm_->FetchPageWrite(leaf_page_id);
-  auto node = lead_page_guard.AsMut<LeafPage>();
-  ValueType v;
-  int index = node->FindValue(key, v, comparator_);
-  if (index != -1 && comparator_(key, node->KeyAt(index)) == 0) {
-    return false;
-  }
-  if (index == -1) {
-    index = node->GetSize();
-  }
-  node->IncreaseSize(1);
-  for (int i = node->GetSize() - 1; i > index; i--) {
-    node->SetKeyAt(i, node->KeyAt(i - 1));
-    node->SetValueAt(i, node->ValueAt(i - 1));
-  }
-  node->SetKeyAt(index, key);
-  node->SetValueAt(index, value);
-  return true;
-}
-
-INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transaction *txn) -> bool {
   // std::cout << "Thread ID: " << thread << " -- Find | key : " << std::to_string(key.ToString()).c_str() << std::endl;
   Context ctx;
   (void)ctx;
   LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
-  // if (HappyInsert(key, value, txn)) {
-  //   return true;
-  // }
 
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
   auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
@@ -220,7 +173,8 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
                                    Transaction *txn) -> void {
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
-  auto new_leaf_node = guard.AsMut<LeafPage>();
+  WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
+  auto new_leaf_node = w_guard.AsMut<LeafPage>();
   new_leaf_node->Init(leaf_max_size_);
   bool put_left = false;
 
@@ -323,7 +277,8 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
   // 3.创建一个新node，并移动一半数据过去
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
-  auto new_internal_node = guard.AsMut<InternalPage>();
+  WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
+  auto new_internal_node = w_guard.AsMut<InternalPage>();
   new_internal_node->Init(internal_max_size_);
   new_internal_node->IncreaseSize(1);
   int num = 0;
@@ -372,10 +327,8 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
 
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
-    ctx.root_page_id_ = head_page->root_page_id_;
-    guard.Drop();
-
     WritePageGuard new_root_guard = bpm_->FetchPageWrite(head_page->root_page_id_);
+    ctx.root_page_id_ = head_page->root_page_id_;
     auto new_root_node = new_root_guard.AsMut<InternalPage>();
 
     new_root_node->Init(internal_max_size_);
@@ -421,63 +374,12 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
  * necessary.
  */
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::HappyRemove(const KeyType &key, Transaction *txn) -> int {
-  ReadPageGuard head_guard = bpm_->FetchPageRead(header_page_id_);
-  auto head_node = head_guard.As<BPlusTreeHeaderPage>();
-
-  if (head_node->root_page_id_ == INVALID_PAGE_ID) {
-    return 1;
-  }
-  ReadPageGuard guard = bpm_->FetchPageRead(head_node->root_page_id_);
-
-  page_id_t next_page_id;
-  auto tree_page = guard.As<BPlusTreePage>();
-
-  while (!tree_page->IsLeafPage()) {
-    auto internal_node = guard.As<InternalPage>();
-    internal_node->FindValue(key, next_page_id, comparator_);
-    guard = bpm_->FetchPageRead(next_page_id);
-    tree_page = guard.As<BPlusTreePage>();
-  }
-
-  page_id_t leaf_page_id = guard.PageId();
-  guard.Drop();
-  WritePageGuard lead_page_guard = bpm_->FetchPageWrite(leaf_page_id);
-  auto node = lead_page_guard.AsMut<LeafPage>();
-
-  int index = -1;
-  ValueType v;
-  index = node->FindValue(key, v, comparator_);
-  if (index == -1) {
-    return 2;  // 找不到这个key
-  }
-  if (comparator_(key, node->KeyAt(index)) != 0) {
-    return 2;  // key不存在
-  }
-  if (!tree_page->IsDeleteSafe()) {
-    return 3;
-  }
-  for (int i = index; i < node->GetSize() - 1; i++) {
-    node->SetKeyAt(i, node->KeyAt(i + 1));
-    node->SetValueAt(i, node->ValueAt(i + 1));
-  }
-  node->IncreaseSize(-1);
-
-  lead_page_guard.Drop();
-  return 0;
-}
-
-INDEX_TEMPLATE_ARGUMENTS
 void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // Declaration of context instance.
   // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
   LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
-  // int flag = HappyRemove(key, txn);
-  // if (flag == 2 || flag == 1 || flag == 0) {  // key不存在  或者 空树
-  //   return;
-  // }
 
   // LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
   std::map<page_id_t, int> index_mp;
@@ -857,7 +759,7 @@ void BPLUSTREE_TYPE::DeleteInternalNodeKey(bustub::page_id_t this_page_id, int d
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁和内存泄露原因");
+  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
 
   ReadPageGuard head_guard = bpm_->FetchPageRead(header_page_id_);
   auto head_node = head_guard.As<BPlusTreeHeaderPage>();
@@ -887,7 +789,7 @@ auto BPLUSTREE_TYPE::Begin() -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁和内存泄露原因");
+  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
 
   ReadPageGuard head_gurad = bpm_->FetchPageRead(header_page_id_);
   auto head_node = head_gurad.As<BPlusTreeHeaderPage>();
@@ -911,9 +813,9 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
   if (index == -1) {
     return End();
   }
-  if ((comparator_(leaf_node->KeyAt(index), key) != 0)) {
-    return End();
-  }
+  // if ((comparator_(leaf_node->KeyAt(index), key) != 0)) {
+  //   return End();
+  // }
   MappingType entry = MappingType(leaf_node->KeyAt(index), leaf_node->ValueAt(index));
 
   return INDEXITERATOR_TYPE(bpm_, next_page_id, index, entry);
@@ -926,7 +828,7 @@ auto BPLUSTREE_TYPE::Begin(const KeyType &key) -> INDEXITERATOR_TYPE {
  */
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::End() -> INDEXITERATOR_TYPE {
-  // throw Exception("暂时不实现迭代器，查看是否是死锁和内存泄露原因");
+  // throw Exception("暂时不实现迭代器，查看是否是死锁原因");
   Context ctx;
   return INDEXITERATOR_TYPE(bpm_, -1, 0);
 }
