@@ -429,25 +429,5 @@ TEST(BPlusTreeConcurrentTest, MixTest2) {
   bpm->UnpinPage(HEADER_PAGE_ID, true);
   delete bpm;
 }
-// 线程函数，简单地打印一条消息
-void threadFunction(int id) {
-  std::cout << "Thread " << id << " started" << std::endl;
-  // 模拟线程执行一段时间
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "Thread " << id << " finished" << std::endl;
-}
-TEST(BPlusTreeConcurrentTest, wmytest1) {
-  std::cout << "Main thread started" << std::endl;
-
-  // 创建两个线程
-  std::thread t1(threadFunction, 1);
-  std::thread t2(threadFunction, 2);
-
-  // 等待两个线程执行完毕
-  t1.join();
-  t2.join();
-
-  std::cout << "Main thread finished" << std::endl;
-}
 
 }  // namespace bustub
