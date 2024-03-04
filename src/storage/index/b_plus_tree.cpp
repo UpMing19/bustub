@@ -109,6 +109,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   if (head_page->root_page_id_ == INVALID_PAGE_ID) {
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
+    guard.Drop();
     WritePageGuard guard1 = bpm_->FetchPageWrite(head_page->root_page_id_);
     auto leaf_node = guard1.AsMut<LeafPage>();
     ctx.root_page_id_ = head_page->root_page_id_;
@@ -173,6 +174,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
                                    Transaction *txn) -> void {
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
+  guard.Drop();
   WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
   auto new_leaf_node = w_guard.AsMut<LeafPage>();
   new_leaf_node->Init(leaf_max_size_);
@@ -236,9 +238,7 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   page_id_t nxt = node->GetNextPageId();
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
-  guard.Drop();
-  w_guard.Drop();
-  InsertParent(new_leaf_node->KeyAt(0), pid, ctx, txn);
+  InsertParent(new_leaf_node->KeyAt(0), pid, std::move(w_guard),ctx, txn);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -278,6 +278,7 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
   // 3.创建一个新node，并移动一半数据过去
   page_id_t pid;
   BasicPageGuard guard = bpm_->NewPageGuarded(&pid);
+  guard.Drop();
   WritePageGuard w_guard = bpm_->FetchPageWrite(pid);
   auto new_internal_node = w_guard.AsMut<InternalPage>();
   new_internal_node->Init(internal_max_size_);
@@ -314,13 +315,12 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
     new_internal_node->SetKeyAt(0, KeyType{});
     new_internal_node->SetValueAt(0, up_key_value);
   }
-    w_guard.Drop();
-  guard.Drop();
-  InsertParent(up_key, pid, ctx);
+
+  InsertParent(up_key, pid, std::move(w_guard),ctx);
 }
 
 INDEX_TEMPLATE_ARGUMENTS
-auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Context &ctx, Transaction *txn) -> void {
+auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value,WritePageGuard &&new_guard, Context &ctx, Transaction *txn) -> void {
   page_id_t cur_page_id = ctx.write_set_.back().PageId();
   if (ctx.IsRootPage(cur_page_id)) {
     page_id_t old_root_page_id = ctx.root_page_id_;
@@ -329,6 +329,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     auto head_page = head_page_guard.AsMut<BPlusTreeHeaderPage>();
 
     BasicPageGuard guard = bpm_->NewPageGuarded(&head_page->root_page_id_);
+      guard.Drop();
     WritePageGuard new_root_guard = bpm_->FetchPageWrite(head_page->root_page_id_);
     ctx.root_page_id_ = head_page->root_page_id_;
     auto new_root_node = new_root_guard.AsMut<InternalPage>();
@@ -337,7 +338,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     new_root_node->IncreaseSize(1);
     new_root_node->IncreaseSize(1);
     new_root_node->SetKeyAt(1, key);
-    new_root_node->SetValueAt(1, value);
+    new_root_node->SetValueAt(1, new_guard.PageId());
 
     new_root_node->SetKeyAt(0, KeyType{});
     new_root_node->SetValueAt(0, old_root_page_id);
