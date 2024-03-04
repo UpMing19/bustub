@@ -236,7 +236,8 @@ auto BPLUSTREE_TYPE::SplitLeafNode(LeafPage *node, const KeyType &key, const Val
   page_id_t nxt = node->GetNextPageId();
   new_leaf_node->SetNextPageId(nxt);
   node->SetNextPageId(pid);
-
+  guard.Drop();
+  w_guard.Drop();
   InsertParent(new_leaf_node->KeyAt(0), pid, ctx, txn);
 }
 
@@ -313,7 +314,8 @@ auto BPLUSTREE_TYPE::SplitInternalNode(InternalPage *node, const KeyType &key, c
     new_internal_node->SetKeyAt(0, KeyType{});
     new_internal_node->SetValueAt(0, up_key_value);
   }
-
+    w_guard.Drop();
+  guard.Drop();
   InsertParent(up_key, pid, ctx);
 }
 
