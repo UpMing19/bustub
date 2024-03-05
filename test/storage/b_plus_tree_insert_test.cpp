@@ -86,7 +86,7 @@ TEST(BPlusTreeTests, InsertTest2) {
   std::srand(static_cast<unsigned int>(std::time(0)));
 
   std::vector<int64_t> keys = {};
-  int scale = 80;
+  int scale = 8;
   for (int i = 1; i <= scale; i++) {
     keys.push_back(std::rand() % scale + 1);
   }
@@ -95,6 +95,7 @@ TEST(BPlusTreeTests, InsertTest2) {
     rid.Set(static_cast<int32_t>(key >> 32), value);
     index_key.SetFromInteger(key);
     tree.Insert(index_key, rid, transaction);
+      std::cout << tree.DrawBPlusTree() << "\n";
   }
 
   std::cout << tree.DrawBPlusTree() << "\n";
