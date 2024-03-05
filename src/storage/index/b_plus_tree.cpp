@@ -1,4 +1,5 @@
 #include "storage/index/b_plus_tree.h"
+#include <cassert>
 #include <cstddef>
 #include <optional>
 #include <sstream>
@@ -54,14 +55,21 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   Context ctx;
   (void)ctx;
-  LOG_INFO("Get key : %s", std::to_string(key.ToString()).c_str());
-  if (GetRootPageId() == INVALID_PAGE_ID) {
+  // throw Exception("Get先异常");
+  // LOG_INFO("Get key : %s", std::to_string(key.ToString()).c_str());
+  // if (GetRootPageId() == INVALID_PAGE_ID) {
+  //   return false;
+  // }
+  if (header_page_id_ == INVALID_PAGE_ID) {
     return false;
   }
   ReadPageGuard head_guard = bpm_->FetchPageRead(header_page_id_);
   auto head_node = head_guard.As<BPlusTreeHeaderPage>();
+  ctx.read_set_.push_back(std::move(head_guard));
   ctx.root_page_id_ = head_node->root_page_id_;
-
+  if (ctx.root_page_id_ == INVALID_PAGE_ID) {
+    return false;
+  }
   ReadPageGuard guard = bpm_->FetchPageRead(ctx.root_page_id_);
 
   page_id_t next_page_id;
@@ -102,7 +110,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   // std::cout << "Thread ID: " << thread << " -- Find | key : " << std::to_string(key.ToString()).c_str() << std::endl;
   Context ctx;
   (void)ctx;
-  LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
+  // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
 
   ctx.header_page_ = bpm_->FetchPageWrite(header_page_id_);
   auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
@@ -342,6 +350,7 @@ auto BPLUSTREE_TYPE::InsertParent(const KeyType &key, const page_id_t &value, Co
     ctx.write_set_.clear();
     return;
   }
+  assert(!ctx.write_set_.empty());
   ctx.write_set_.pop_back();
   WritePageGuard &guard = ctx.write_set_.back();
 
@@ -379,7 +388,8 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
   // std::unique_lock<std::mutex> lq(mutex_);
   Context ctx;
   (void)ctx;
-  LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
+  throw Exception("remove先异常");
+  // LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
 
   // LOG_INFO("Remove key : %s", std::to_string(key.ToString()).c_str());
   std::map<page_id_t, int> index_mp;

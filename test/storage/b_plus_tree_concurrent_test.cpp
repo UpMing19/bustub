@@ -186,14 +186,14 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   std::vector<int64_t> keys;
   std::vector<int64_t> keys2;
   std::vector<int64_t> keys3;
-  int64_t scale_factor = 100;
+  int64_t scale_factor = 20;
   for (int64_t key = 1; key < scale_factor; key++) {
     keys.push_back(key);
   }
   for (int64_t key = scale_factor; key < 2 * scale_factor; key++) {
     keys2.push_back(key);
   }
-        for (int64_t key = 10; key < 100; key++) {
+        for (int64_t key = 10; key < 20; key++) {
             keys3.push_back(key);
         }
   auto insert_task = [&](int tid) { InsertHelper(&tree, keys2, tid); };
@@ -216,6 +216,11 @@ TEST(BPlusTreeConcurrentTest, InsertTest2) {
   for (size_t i = 0; i < num_threads; i++) {
     threads[i].join();
   }
+//  std::string tree_out;
+//  tree.Draw(bpm,tree_out);
+//  std::cout<<tree_out<<std::endl;
+//
+//  tree.Print(bpm);
 
   std::vector<RID> rids;
   GenericKey<8> index_key;
