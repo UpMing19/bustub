@@ -116,14 +116,15 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
   auto head_page = ctx.header_page_.value().AsMut<BPlusTreeHeaderPage>();
 
   if (head_page->root_page_id_ == INVALID_PAGE_ID) {
-    bpm_->NewPageGuarded(&head_page->root_page_id_);
-    WritePageGuard guard1 = bpm_->FetchPageWrite(head_page->root_page_id_);
+      page_id_t  ppid;
+    bpm_->NewPageGuarded(&ppid);
+    WritePageGuard guard1 = bpm_->FetchPageWrite(ppid);
     auto *leaf_node = guard1.AsMut<LeafPage>();
-    ctx.root_page_id_ = head_page->root_page_id_;
     leaf_node->Init(leaf_max_size_);
     leaf_node->IncreaseSize(1);
     leaf_node->SetKeyAt(0, key);
     leaf_node->SetValueAt(0, value);
+    head_page->root_page_id_ = ppid;
     return true;
   }
   ctx.root_page_id_ = head_page->root_page_id_;
