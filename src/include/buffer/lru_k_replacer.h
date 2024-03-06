@@ -12,14 +12,17 @@
 
 #pragma once
 
+#include <iostream>
 #include <limits>
 #include <list>
-#include <map>
+#include <memory>
 #include <mutex>  // NOLINT
+#include <string>
 #include <unordered_map>
 #include <vector>
 
 #include "common/config.h"
+#include "common/logger.h"
 #include "common/macros.h"
 
 namespace bustub {
@@ -27,25 +30,50 @@ namespace bustub {
 enum class AccessType { Unknown = 0, Get, Scan };
 
 class LRUKNode {
+ public:
+  LRUKNode(frame_id_t id, int k) : k_(k), fid_(id) {}
+
+  void InsertTimeStamp(size_t ts) { history_.push_back(ts); }
+
+  void SetEvictable(bool set_evictable) { is_evictable_ = set_evictable; }
+
+  void UpdateKDistance() {
+    auto iter = history_.rbegin();
+    for (size_t i = 0; i < k_ - 1 && iter != history_.rend(); ++i) {
+      ++iter;
+    }
+    // update the backward k-distance
+    k_dist_ = (*iter);
+  }
+
+  auto GetKDistance() const -> size_t { return k_dist_; };
+
+  auto GetEvictable() const -> bool { return is_evictable_; };
+
+  auto GetNumOfReferences() const -> size_t { return history_.size(); };
+
+  auto GetFrameId() const -> frame_id_t { return fid_; };
+
+  auto GetHistory() -> std::string {
+    std::string res = "[";
+    for (size_t h : history_) {
+      res += (std::to_string(h) + " ");
+    }
+    res += "]";
+    return res;
+  }
+
+  ~LRUKNode() = default;
+
  private:
   /** History of last seen K timestamps of this page. Least recent timestamp stored in front. */
   // Remove maybe_unused if you start using them. Feel free to change the member variables as you want.
 
-  std::list<size_t> history_;
+  std::list<size_t> history_;  // The least recent TS is in front, most recent TS is in the back
   size_t k_;
   frame_id_t fid_;
   bool is_evictable_{false};
-
- public:
-  LRUKNode() = default;
-  LRUKNode(size_t k, frame_id_t fid);
-  ~LRUKNode() = default;
-  void SetIsEvictable(bool f);
-  auto GetIsEvictable() -> bool;
-  auto GetKNum() -> size_t;
-  auto GetFrameId() -> frame_id_t { return fid_; };
-  auto GetKBackNum() -> size_t;
-  void PushTimeStampToList(size_t timestamp);
+  size_t k_dist_{0};
 };
 
 /**
@@ -56,7 +84,7 @@ class LRUKNode {
  * current timestamp and the timestamp of kth previous access.
  *
  * A frame with less than k historical references is given
- * +inf as its backward k-distance. When multiple frames have +inf backward k-distance,
+ * +inf as its backward k-distance. When multipe frames have +inf backward k-distance,
  * classical LRU algorithm is used to choose victim.
  */
 class LRUKReplacer {
@@ -159,15 +187,41 @@ class LRUKReplacer {
    */
   auto Size() -> size_t;
 
+  void PrintLists();
+
+ private:
+  /* Insert a node into the k_list_ based on backward k-distance. */
+  void InsertKNode(std::shared_ptr<LRUKNode> &node);
+
+  auto RemoveNode(frame_id_t *frame_id, std::list<std::shared_ptr<LRUKNode>> *lst,
+                  std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>> *map) -> bool;
+
  private:
   // TODO(student): implement me! You can replace these member variables as you like.
   // Remove maybe_unused if you start using them.
-  std::unordered_map<frame_id_t, LRUKNode> node_store_;
+
+  // std::unordered_map<frame_id_t, LRUKNode> node_store_;
   size_t current_timestamp_{0};
-  size_t curr_size_{0};
-  size_t replacer_size_;
+  size_t curr_size_{0};   // number of evictable frames
+  size_t replacer_size_;  // maximum number of frames to store
   size_t k_;
   std::mutex latch_;
+
+  // // frames with less than k references
+  // std::list<LRUKNode *> default_list_;
+  // std::unordered_map<frame_id_t, LRUKNode *> default_map_;
+
+  // // frames with more than k references
+  // std::list<LRUKNode *> k_list_;
+  // std::unordered_map<frame_id_t, LRUKNode *> k_map_;
+
+  // frames with less than k references (FIFO style)
+  std::list<std::shared_ptr<LRUKNode>> default_list_;
+  std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>> default_map_;
+
+  // frames with more than k references
+  std::list<std::shared_ptr<LRUKNode>> k_list_;
+  std::unordered_map<frame_id_t, std::shared_ptr<LRUKNode>> k_map_;
 };
 
 }  // namespace bustub

@@ -55,7 +55,7 @@ INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result, Transaction *txn) -> bool {
   Context ctx;
   (void)ctx;
-  // throw Exception("Get先异常");
+  throw Exception("Get先异常");
   // LOG_INFO("Get key : %s", std::to_string(key.ToString()).c_str());
   // if (GetRootPageId() == INVALID_PAGE_ID) {
   //   return false;

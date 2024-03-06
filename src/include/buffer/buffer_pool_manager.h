@@ -35,7 +35,7 @@ class BufferPoolManager {
    * @brief Creates a new BufferPoolManager.
    * @param pool_size the size of the buffer pool
    * @param disk_manager the disk manager
-   * @param replacer_k the LookBack constant k for the LRU-K replacer
+   * @param replacer_k the lookback constant k for the LRU-K replacer
    * @param log_manager the log manager (for testing only: nullptr = disable logging). Please ignore this for P1.
    */
   BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k = LRUK_REPLACER_K,
@@ -149,7 +149,6 @@ class BufferPoolManager {
    * @return false if the page could not be found in the page table, true otherwise
    */
   auto FlushPage(page_id_t page_id) -> bool;
-  auto InternalFlushPages(page_id_t page_id) -> bool;
 
   /**
    * TODO(P1): Add implementation
@@ -180,7 +179,7 @@ class BufferPoolManager {
   std::atomic<page_id_t> next_page_id_ = 0;
 
   /** Array of buffer pool pages. */
-  Page *pages_;
+  Page *pages_;  // 这里的 page 本质上就是 frame, 用来容纳实际的 physical page
   /** Pointer to the disk manager. */
   DiskManager *disk_manager_ __attribute__((__unused__));
   /** Pointer to the log manager. Please ignore this for P1. */
@@ -207,6 +206,17 @@ class BufferPoolManager {
   void DeallocatePage(__attribute__((unused)) page_id_t page_id) {
     // This is a no-nop right now without a more complex data structure to track deallocated pages
   }
+
+  /**
+   * @brief find a free frame from free_list_ or replacer_
+   *
+   * @param free_frame_id
+   * @return true
+   * @return false
+   */
+  auto FindFreeFrame(frame_id_t *free_frame_id) -> bool;
+
+  void PrintFrames();
 
   // TODO(student): You may add additional private members and helper functions
 };
