@@ -90,7 +90,6 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
     value = leaf_node->ValueAt(index);
     result->push_back(value);
     return true;
-
   }
   return false;
 }
