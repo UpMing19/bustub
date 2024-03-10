@@ -12,15 +12,22 @@
 
 #include <memory>
 
+#include "catalog/catalog.h"
 #include "execution/executors/insert_executor.h"
 
 namespace bustub {
 
 InsertExecutor::InsertExecutor(ExecutorContext *exec_ctx, const InsertPlanNode *plan,
                                std::unique_ptr<AbstractExecutor> &&child_executor)
-    : AbstractExecutor(exec_ctx) {}
+    : AbstractExecutor(exec_ctx) {
+  plan_ = plan;
+}
 
-void InsertExecutor::Init() { throw NotImplementedException("InsertExecutor is not implemented"); }
+void InsertExecutor::Init() {
+  // throw NotImplementedException("InsertExecutor is not implemented");
+  //  Catalog *catalog = exec_ctx_->GetCatalog();
+  // TableInfo *tableinfo = catalog->GetTable(plan_->TableOid());
+}
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool { return false; }
 
