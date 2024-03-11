@@ -21,7 +21,7 @@ select * from t1;
 
 # Delete from the table
 query
-delete from t1 where v1 >= 3
+delete from t1 where v1 >= 3;
 ----
 2
 

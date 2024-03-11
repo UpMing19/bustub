@@ -51,6 +51,9 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       return true;
     }
     ++(*table_iterator_);
+    if (table_iterator_->IsEnd()) {
+      break;
+    }
     tuple1 = table_iterator_->GetTuple();
   }
   return false;
