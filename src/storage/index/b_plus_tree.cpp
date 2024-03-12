@@ -151,19 +151,18 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   auto leaf_node = guard.AsMut<LeafPage>();
   ctx.write_set_.push_back(std::move(guard));
-  InsertLeafNode(leaf_node, key, value, ctx, txn);
+  return InsertLeafNode(leaf_node, key, value, ctx, txn);
   // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
-  return false;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
-                                    Transaction *txn) -> void {
+                                    Transaction *txn) -> bool {
   ValueType v;
   int index = node->FindValue(key, v, comparator_);
   if (index != -1 && comparator_(node->KeyAt(index), key) == 0) {
     // LOG_INFO(" key重复 ");
-    return;
+    return false;
   }
   if (node->GetSize() + 1 == node->GetMaxSize()) {
     SplitLeafNode(node, key, value, ctx, txn);
@@ -180,6 +179,7 @@ auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const Va
     node->SetKeyAt(index, key);
     node->SetValueAt(index, value);
   }
+  return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS

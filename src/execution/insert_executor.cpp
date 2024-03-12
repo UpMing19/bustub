@@ -57,7 +57,8 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     //    debug(r.value());
 
     *rid = r.value();
-
+    LOG_DEBUG("insert tuple: %s", tuple->ToString(&child_executor_->GetOutputSchema()).c_str());
+    LOG_DEBUG("rid of inserted tuple: %s", rid->ToString().c_str());
     // 2.更新索引
     std::vector<IndexInfo *> v = catalog->GetTableIndexes(table_info->name_);
 
@@ -65,6 +66,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
       Tuple key =
           tuple->KeyFromTuple(table_info->schema_, p->key_schema_, p->index_->GetKeyAttrs());  // todo 不from 好像也行？
       if (!p->index_->InsertEntry(key, *rid, exec_ctx_->GetTransaction())) {
+        LOG_ERROR("index_->InsertEntry 插入后更新索引失败");
         return false;
       }
     }
@@ -72,7 +74,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     // 3. 返回的tuple 和插入的tuple不同，要包含一个整数 插入了多少行
     affect_cow++;
   }
-
+  LOG_INFO("insert next's affect row %d", affect_cow);
   values = {{TypeId::INTEGER, affect_cow}};
   output_tuple = Tuple{values, &GetOutputSchema()};
   *tuple = output_tuple;

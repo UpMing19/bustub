@@ -79,7 +79,7 @@ class BPlusTree {
 
   // Insert a key-value pair into this B+ tree.
   auto InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
-                      Transaction *txn = nullptr) -> void;
+                      Transaction *txn = nullptr) -> bool;
 
   auto SplitLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
                      Transaction *txn = nullptr) -> void;

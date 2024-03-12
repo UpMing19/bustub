@@ -12,8 +12,10 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 
+#include "catalog/catalog.h"
 #include "common/rid.h"
 #include "execution/executor_context.h"
 #include "execution/executors/abstract_executor.h"
@@ -44,5 +46,11 @@ class IndexScanExecutor : public AbstractExecutor {
  private:
   /** The index scan plan node to be executed. */
   const IndexScanPlanNode *plan_;
+  bool end_flag_ = false;
+  Catalog *catalog_ = nullptr;
+  IndexInfo *index_info_ = nullptr;
+  TableInfo *table_info_ = nullptr;
+  BPlusTreeIndexForTwoIntegerColumn *tree_it_ = nullptr;
+  BPlusTreeIndexIteratorForTwoIntegerColumn it_;
 };
 }  // namespace bustub
