@@ -19,7 +19,8 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
       index_info_(catalog_->GetIndex(plan_->GetIndexOid())),
       table_info_(catalog_->GetTable(index_info_->table_name_)),
       tree_it_(dynamic_cast<BPlusTreeIndexForTwoIntegerColumn *>(index_info_->index_.get())),
-      it_(tree_it_->GetBeginIterator()) {}
+      it_(tree_it_->GetBeginIterator()),
+      end_it_(tree_it_->GetEndIterator()) {}
 
 void IndexScanExecutor::Init() {
   // throw NotImplementedException("IndexScanExecutor is not implemented");
@@ -32,7 +33,7 @@ auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
 
   for (;;) {
-    if (it_ == tree_it_->GetEndIterator()) {
+    if (it_ == end_it_) {
       return false;
     }
     auto mapping_type = *it_;
