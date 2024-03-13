@@ -29,6 +29,7 @@ auto BPLUSTREE_INDEX_TYPE::InsertEntry(const Tuple &key, RID rid, Transaction *t
   // construct insert index key
   KeyType index_key;
   index_key.SetFromKey(key);
+  // std::cout << " InsertEntry key : " << index_key << std::endl;
   return container_->Insert(index_key, rid, transaction);
 }
 

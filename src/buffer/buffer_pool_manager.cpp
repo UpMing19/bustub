@@ -116,7 +116,7 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     page_table_.erase(pages_[fr].page_id_);
     pages_[fr].ResetMemory();
     pages_[fr].page_id_ = page_id;
-    pages_[fr].pin_count_++;
+    pages_[fr].pin_count_ = 1;
     pages_[fr].is_dirty_ = false;
     page_table_[page_id] = fr;
     replacer_->RecordAccess(fr);

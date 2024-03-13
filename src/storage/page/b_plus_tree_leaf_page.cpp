@@ -70,6 +70,7 @@ auto B_PLUS_TREE_LEAF_PAGE_TYPE::ValueAt(int index) const -> ValueType {
   // replace with your own code
   ValueType value{};
   if (index < 0 || index >= GetSize()) {
+    std::cout << "index = " << index << std::endl;
     throw Exception("index不在范围内");
   }
   value = array_[index].second;

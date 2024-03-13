@@ -25,6 +25,7 @@ class IndexIterator {
  public:
   using LeafPage = BPlusTreeLeafPage<KeyType, ValueType, KeyComparator>;
   // you may define your own constructor based on your member variables
+  IndexIterator();
   IndexIterator(BufferPoolManager *bufferPoolManager, page_id_t pid, int index, MappingType &entry);
   IndexIterator(BufferPoolManager *buffer_pool_manager, page_id_t page_id, int index);
   // IndexIterator();

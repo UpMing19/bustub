@@ -30,7 +30,6 @@ BPLUSTREE_TYPE::BPlusTree(std::string name, page_id_t header_page_id, BufferPool
   WritePageGuard guard = bpm_->FetchPageWrite(header_page_id_);
   auto root_page = guard.AsMut<BPlusTreeHeaderPage>();
   root_page->root_page_id_ = INVALID_PAGE_ID;
-  // LOG_INFO("缓存池大小: pool size = %zu", (size_t)bpm_->GetPoolSize());
 }
 
 /*
@@ -74,15 +73,12 @@ auto BPLUSTREE_TYPE::GetValue(const KeyType &key, std::vector<ValueType> *result
 
   page_id_t next_page_id;
   auto tree_page = guard.As<BPlusTreePage>();
-  head_guard.Drop();
   while (!tree_page->IsLeafPage()) {
     auto internal_node = guard.As<InternalPage>();
     internal_node->FindValue(key, next_page_id, comparator_);
-    guard.Drop();
     guard = bpm_->FetchPageRead(next_page_id);
     tree_page = guard.As<BPlusTreePage>();
   }
-
   auto leaf_node = guard.As<LeafPage>();
   ValueType value;
   int index = leaf_node->FindValue(key, value, comparator_);
@@ -151,23 +147,25 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
 
   auto leaf_node = guard.AsMut<LeafPage>();
   ctx.write_set_.push_back(std::move(guard));
-  return InsertLeafNode(leaf_node, key, value, ctx, txn);
+  ValueType v;
+  int index = leaf_node->FindValue(key, v, comparator_);
+  if (index != -1 && comparator_(leaf_node->KeyAt(index), key) == 0) {
+    LOG_INFO(" key重复 ");
+    return false;
+  }
+  InsertLeafNode(leaf_node, key, value, ctx, txn);
   // LOG_INFO("Insert key : %s", std::to_string(key.ToString()).c_str());
+  return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
 auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const ValueType &value, Context &ctx,
-                                    Transaction *txn) -> bool {
-  ValueType v;
-  int index = node->FindValue(key, v, comparator_);
-  if (index != -1 && comparator_(node->KeyAt(index), key) == 0) {
-    // LOG_INFO(" key重复 ");
-    return false;
-  }
+                                    Transaction *txn) -> void {
   if (node->GetSize() + 1 == node->GetMaxSize()) {
     SplitLeafNode(node, key, value, ctx, txn);
   } else {
-    index = node->FindValue(key, v, comparator_);
+    ValueType v;
+    int index = node->FindValue(key, v, comparator_);
     if (index == -1) {
       index = node->GetSize();
     }
@@ -179,7 +177,6 @@ auto BPLUSTREE_TYPE::InsertLeafNode(LeafPage *node, const KeyType &key, const Va
     node->SetKeyAt(index, key);
     node->SetValueAt(index, value);
   }
-  return true;
 }
 
 INDEX_TEMPLATE_ARGUMENTS
@@ -585,7 +582,18 @@ void BPLUSTREE_TYPE::DeleteLeafNodeKey(page_id_t this_page_id, const KeyType &ke
     KeyType borrow_key = borrow_node->KeyAt(borrow_node->GetSize() - 1);
     ValueType borrow_value = borrow_node->ValueAt(borrow_node->GetSize() - 1);
     borrow_node->IncreaseSize(-1);
-    InsertLeafNode(node, borrow_key, borrow_value, ctx);
+
+    // InsertLeafNode(node, borrow_key, borrow_value, ctx);
+
+    index = 0;
+    node->IncreaseSize(1);
+    for (int i = node->GetSize() - 1; i > index; i--) {
+      node->SetKeyAt(i, node->KeyAt(i - 1));
+      node->SetValueAt(i, node->ValueAt(i - 1));
+    }
+    node->SetKeyAt(index, borrow_key);
+    node->SetValueAt(index, borrow_value);
+
     parent_node->SetKeyAt(parent_index, node->KeyAt(0));
   } else {
     KeyType borrow_key = borrow_node->KeyAt(0);

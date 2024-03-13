@@ -13,6 +13,7 @@
 #include "buffer/lru_k_replacer.h"
 #include <climits>
 #include <cmath>
+#include <cstddef>
 #include "common/config.h"
 #include "common/exception.h"
 
@@ -116,7 +117,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, AccessType access_type) {
   }
 
   if (full_k_node_store_.count(frame_id) == 0 && unfull_k_node_store_.count(frame_id) == 0) {
-    auto *node = new LRUKNode(k_, frame_id);
+    auto node = new LRUKNode(k_, frame_id);
     // todo 新建的设置成ture 从某些Test中看，应该是这样的
     // node->SetIsEvictable(true);
     // curr_size_++;
@@ -126,6 +127,9 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, AccessType access_type) {
 
   if (unfull_k_node_store_.count(frame_id) != 0) {
     LRUKNode *node = unfull_k_node_store_[frame_id];
+    if (node == nullptr) {
+      throw Exception("unfull_k_node_stroe的node为空");
+    }
     node->PushTime(current_timestamp_);
     if (node->GetHistorySize() == k_) {
       unfull_k_size_--;
@@ -148,6 +152,9 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, AccessType access_type) {
     }
   } else if (full_k_node_store_.count(frame_id) != 0) {
     LRUKNode *node = full_k_node_store_[frame_id];
+    if (node == nullptr) {
+      throw Exception("unfull_k_node_stroe的node2为空");
+    }
     node->PushTime(current_timestamp_);
 
     int flag = 1;

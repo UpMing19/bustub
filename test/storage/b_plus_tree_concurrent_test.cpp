@@ -336,70 +336,73 @@ TEST(BPlusTreeConcurrentTest, DISABLED_MixTest1) {
   delete bpm;
 }
 
-TEST(BPlusTreeConcurrentTest, DISABLED_MixTest2) {
-  // create KeyComparator and index schema
-  auto key_schema = ParseCreateStatement("a bigint");
-  GenericComparator<8> comparator(key_schema.get());
+TEST(BPlusTreeConcurrentTest, MixTest2) {
 
-  auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
-  auto *bpm = new BufferPoolManager(50, disk_manager.get());
+  while(1) {
+    // create KeyComparator and index schema
+    auto key_schema = ParseCreateStatement("a bigint");
+    GenericComparator<8> comparator(key_schema.get());
 
-  // create and fetch header_page
-  page_id_t page_id;
-  auto *header_page = bpm->NewPage(&page_id);
-  (void)header_page;
+    auto disk_manager = std::make_unique<DiskManagerUnlimitedMemory>();
+    auto *bpm = new BufferPoolManager(50, disk_manager.get());
 
-  // create b+ tree
-  BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
+    // create and fetch header_page
+    page_id_t page_id;
+    auto *header_page = bpm->NewPage(&page_id);
+    (void)header_page;
 
-  // Add perserved_keys
-  std::vector<int64_t> perserved_keys;
-  std::vector<int64_t> dynamic_keys;
-  int64_t total_keys = 50;
-  int64_t sieve = 5;
-  for (int64_t i = 1; i <= total_keys; i++) {
-    if (i % sieve == 0) {
-      perserved_keys.push_back(i);
-    } else {
-      dynamic_keys.push_back(i);
+    // create b+ tree
+    BPlusTree<GenericKey<8>, RID, GenericComparator<8>> tree("foo_pk", page_id, bpm, comparator);
+
+    // Add perserved_keys
+    std::vector<int64_t> perserved_keys;
+    std::vector<int64_t> dynamic_keys;
+    int64_t total_keys = 500000;
+    int64_t sieve = 5;
+    for (int64_t i = 1; i <= total_keys; i++) {
+      if (i % sieve == 0) {
+        perserved_keys.push_back(i);
+      } else {
+        dynamic_keys.push_back(i);
+      }
     }
-  }
-  InsertHelper(&tree, perserved_keys, 1);
-  // Check there are 1000 keys in there
-  size_t size;
+    InsertHelper(&tree, perserved_keys, 1);
+    // Check there are 1000 keys in there
+    size_t size;
 
-  auto insert_task = [&](int tid) { InsertHelper(&tree, dynamic_keys, tid); };
-  auto delete_task = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
-  auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
+    auto insert_task = [&](int tid) { InsertHelper(&tree, dynamic_keys, tid); };
+    auto delete_task = [&](int tid) { DeleteHelper(&tree, dynamic_keys, tid); };
+    auto lookup_task = [&](int tid) { LookupHelper(&tree, perserved_keys, tid); };
 
-  std::vector<std::thread> threads;
-  std::vector<std::function<void(int)>> tasks;
-  tasks.emplace_back(insert_task);
-  tasks.emplace_back(delete_task);
-  tasks.emplace_back(lookup_task);
+    std::vector<std::thread> threads;
+    std::vector<std::function<void(int)>> tasks;
+    tasks.emplace_back(insert_task);
+    tasks.emplace_back(delete_task);
+    tasks.emplace_back(lookup_task);
 
-  size_t num_threads = 6;
-  for (size_t i = 0; i < num_threads; i++) {
-    threads.emplace_back(std::thread{tasks[i % tasks.size()], i});
-  }
-  for (size_t i = 0; i < num_threads; i++) {
-    threads[i].join();
-  }
-
-  // Check all reserved keys exist
-  size = 0;
-
-  for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
-    const auto &pair = *iter;
-    if ((pair.first).ToString() % sieve == 0) {
-      size++;
+    size_t num_threads = 8;
+    for (size_t i = 0; i < num_threads; i++) {
+      threads.emplace_back(std::thread{tasks[i % tasks.size()], i});
     }
+    for (size_t i = 0; i < num_threads; i++) {
+      threads[i].join();
+    }
+
+    // Check all reserved keys exist
+    size = 0;
+
+    for (auto iter = tree.Begin(); iter != tree.End(); ++iter) {
+      const auto &pair = *iter;
+      if ((pair.first).ToString() % sieve == 0) {
+        size++;
+      }
+    }
+
+    ASSERT_EQ(size, perserved_keys.size());
+
+    bpm->UnpinPage(HEADER_PAGE_ID, true);
+    delete bpm;
   }
-
-  ASSERT_EQ(size, perserved_keys.size());
-
-  bpm->UnpinPage(HEADER_PAGE_ID, true);
-  delete bpm;
 }
 
 }  // namespace bustub

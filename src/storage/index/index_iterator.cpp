@@ -16,6 +16,9 @@ namespace bustub {
  * set your own input parameters
  */
 INDEX_TEMPLATE_ARGUMENTS
+INDEXITERATOR_TYPE::IndexIterator() = default;
+
+INDEX_TEMPLATE_ARGUMENTS
 INDEXITERATOR_TYPE::IndexIterator(BufferPoolManager *bufferPoolManager, page_id_t pid, int index, MappingType &entry)
     : bpm_(bufferPoolManager), pid_(pid), index_(index) {
   entry_ = entry;
