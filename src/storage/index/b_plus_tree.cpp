@@ -135,8 +135,7 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     page_id_t v;
     internal_node->FindValue(key, v, comparator_);
     if (internal_node->IsInsertSafe()) {
-      while (ctx.write_set_.size() > 1) {
-        ctx.write_set_.front().Drop();
+      while (ctx.write_set_.size() > 3) {
         ctx.write_set_.pop_front();
       }
     }
@@ -426,8 +425,7 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     index_mp[internal_node->ValueAt(index)] = index;
     if (internal_node->IsDeleteSafe()) {
       // todo这里如果clear会内存泄漏，clear掉了后面要使用的？
-      while (ctx.write_set_.size() > 1) {
-        ctx.write_set_.front().Drop();
+      while (ctx.write_set_.size() > 3) {
         ctx.write_set_.pop_front();
       }
     }
