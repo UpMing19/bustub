@@ -21,7 +21,8 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
       it_(tree_it_->GetBeginIterator()),
       end_it_(tree_it_->GetEndIterator()) {}
 
-void IndexScanExecutor::Init() { throw NotImplementedException("IndexScanExecutor is not implemented"); }
+void IndexScanExecutor::Init() {  // throw NotImplementedException("IndexScanExecutor is not implemented");
+}
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   for (;;) {
