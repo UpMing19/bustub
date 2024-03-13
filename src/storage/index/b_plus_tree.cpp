@@ -134,11 +134,11 @@ auto BPLUSTREE_TYPE::Insert(const KeyType &key, const ValueType &value, Transact
     auto internal_node = guard.AsMut<InternalPage>();
     page_id_t v;
     internal_node->FindValue(key, v, comparator_);
-    if (internal_node->IsInsertSafe()) {
-      while (ctx.write_set_.size() > 3) {
-        ctx.write_set_.pop_front();
-      }
-    }
+    // if (internal_node->IsInsertSafe()) {
+    //   while (ctx.write_set_.size() > 3) {
+    //     ctx.write_set_.pop_front();
+    //   }
+    // }
     ctx.write_set_.push_back(std::move(guard));
     guard = bpm_->FetchPageWrite(v);
     tree_node = guard.AsMut<BPlusTreePage>();
@@ -423,12 +423,12 @@ void BPLUSTREE_TYPE::Remove(const KeyType &key, Transaction *txn) {
     }
 
     index_mp[internal_node->ValueAt(index)] = index;
-    if (internal_node->IsDeleteSafe()) {
-      // todo这里如果clear会内存泄漏，clear掉了后面要使用的？
-      while (ctx.write_set_.size() > 3) {
-        ctx.write_set_.pop_front();
-      }
-    }
+    // if (internal_node->IsDeleteSafe()) {
+    //   // todo这里如果clear会内存泄漏，clear掉了后面要使用的？
+    //   while (ctx.write_set_.size() > 3) {
+    //     ctx.write_set_.pop_front();
+    //   }
+    // }
     ctx.write_set_.push_back(std::move(guard));
     guard = bpm_->FetchPageWrite(value);
     tree_node = guard.AsMut<BPlusTreePage>();
