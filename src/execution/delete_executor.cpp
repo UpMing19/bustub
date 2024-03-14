@@ -14,6 +14,7 @@
 #include <optional>
 
 #include "catalog/catalog.h"
+#include "common/logger.h"
 #include "execution/executors/delete_executor.h"
 #include "type/type_id.h"
 
@@ -27,11 +28,13 @@ DeleteExecutor::DeleteExecutor(ExecutorContext *exec_ctx, const DeletePlanNode *
 }
 
 void DeleteExecutor::Init() {
+  LOG_INFO("delete  Executor Init");
   child_executor_->Init();
   end_flag_ = false;
 }
 
 auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
+  LOG_INFO("delete  Executor Next");
   if (end_flag_) {
     return false;
   }
