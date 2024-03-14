@@ -63,8 +63,11 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
   std::vector<Value> values;
   values = aht_iterator_.Key().group_bys_;
+  std::cout << "Valuse Size1 = " << values.size() << std::endl;
   values.insert(values.end(), aht_iterator_.Val().aggregates_.begin(), aht_iterator_.Val().aggregates_.end());
+  std::cout << "Valuse Size2 = " << values.size() << std::endl;
   *tuple = Tuple(values, &plan_->OutputSchema());
+  LOG_DEBUG("agg new tuple: %s", tuple->ToString(&plan_->OutputSchema()).c_str());
   *rid = tuple->GetRid();
   ++(aht_iterator_);
   return true;
