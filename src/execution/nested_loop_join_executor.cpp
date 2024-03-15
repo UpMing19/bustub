@@ -20,12 +20,15 @@ namespace bustub {
 NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const NestedLoopJoinPlanNode *plan,
                                                std::unique_ptr<AbstractExecutor> &&left_executor,
                                                std::unique_ptr<AbstractExecutor> &&right_executor)
-    : AbstractExecutor(exec_ctx),plan_(plan), left_executor_(std::move(left_executor)), right_executor_(std::move(right_executor)) {
+    : AbstractExecutor(exec_ctx),
+      plan_(plan),
+      left_executor_(std::move(left_executor)),
+      right_executor_(std::move(right_executor)) {
   if (!(plan->GetJoinType() == JoinType::LEFT || plan->GetJoinType() == JoinType::INNER)) {
     // Note for 2023 Spring: You ONLY need to implement left join and inner join.
     throw bustub::NotImplementedException(fmt::format("join type {} not supported", plan->GetJoinType()));
   }
-  flag_=0;
+  flag_ = 0;
 }
 
 void NestedLoopJoinExecutor::Init() {
@@ -33,12 +36,12 @@ void NestedLoopJoinExecutor::Init() {
   LOG_INFO("join join init ");
   right_executor_->Init();
   left_executor_->Init();
-  RID r ;
+  RID r;
   LOG_INFO("join join init1 ");
   temp_left_ = new Tuple();
   rt_ = new Tuple();
-  bool res  = left_executor_->Next(temp_left_, &r);
-  std::cout<<"## : "<<res<<std::endl;
+  bool res = left_executor_->Next(temp_left_, &r);
+  std::cout << "## : " << res << std::endl;
   flag_ = 0;
   LOG_INFO("join join init2 ");
 }
@@ -78,16 +81,16 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         Tuple output_tuple = Tuple{values, &GetOutputSchema()};
         *tuple = output_tuple;
         flag_ = 1;
-         { right_executor_->Init(); } //这里之所以用同一条目重新查一边右表是为了能够break掉循环 return false终止查询
-         return true;
+        { right_executor_->Init(); }  //这里之所以用同一条目重新查一边右表是为了能够break掉循环 return false终止查询
+        return true;
       }
 
       if (!left_executor_->Next(temp_left_, rid)) {
-        if(temp_left_!= nullptr){
+        if (temp_left_ != nullptr) {
           delete temp_left_;
           temp_left_ = nullptr;
         }
-        if(rt_!= nullptr){
+        if (rt_ != nullptr) {
           delete rt_;
           rt_ = nullptr;
         }
@@ -98,9 +101,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     }
 
   } else {
-
     while (true) {
-
       while (right_executor_->Next(rt_, rid)) {
         Value res = plan_->predicate_->EvaluateJoin(temp_left_, left_executor_->GetOutputSchema(), rt_,
                                                     right_executor_->GetOutputSchema());
@@ -121,13 +122,12 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         }
       }
 
-
       if (!left_executor_->Next(temp_left_, rid)) {
-        if(temp_left_!= nullptr){
+        if (temp_left_ != nullptr) {
           delete temp_left_;
           temp_left_ = nullptr;
         }
-        if(rt_!= nullptr){
+        if (rt_ != nullptr) {
           delete rt_;
           rt_ = nullptr;
         }
@@ -135,10 +135,6 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
 
       right_executor_->Init();
-
-
-
-
     }
   }
 
