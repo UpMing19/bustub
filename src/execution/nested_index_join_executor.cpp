@@ -30,85 +30,75 @@ void NestIndexJoinExecutor::Init() {
   right_table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->GetInnerTableOid());
   left_temp_tuple_ = new Tuple();
   RID r;
-  child_executor_->Next(left_temp_tuple_,&r);
-  flag_=0;
+  child_executor_->Next(left_temp_tuple_, &r);
+  flag_ = 0;
 }
 
 auto NestIndexJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (plan_->GetJoinType() == JoinType::LEFT) {
-
-
-
-    while(true){
-
-      std::vector<Value> values{plan_->key_predicate_->Evaluate(left_temp_tuple_,child_executor_->GetOutputSchema())};
-      Tuple tu = Tuple{values,index_info_->index_->GetKeySchema()};
+    while (true) {
+      std::vector<Value> values{plan_->key_predicate_->Evaluate(left_temp_tuple_, child_executor_->GetOutputSchema())};
+      Tuple tu = Tuple{values, index_info_->index_->GetKeySchema()};
       std::vector<RID> result;
-      index_info_->index_->ScanKey(tu,&result,exec_ctx_->GetTransaction());
+      index_info_->index_->ScanKey(tu, &result, exec_ctx_->GetTransaction());
 
-      if(result.size()){
+      if (!result.empty()) {
         std::vector<Value> value{};
-        for(uint32_t i = 0 ;i<child_executor_->GetOutputSchema().GetColumnCount() ; i++){
-          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(),i));
+        for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
+          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(), i));
         }
-        for(uint32_t i = 0 ;i<right_table_info_->schema_.GetColumnCount(); i++){
-          value.push_back(tu.GetValue(&right_table_info_->schema_,i));
+        for (uint32_t i = 0; i < right_table_info_->schema_.GetColumnCount(); i++) {
+          value.push_back(tu.GetValue(&right_table_info_->schema_, i));
         }
-        Tuple output_tuple = {value,&plan_->OutputSchema()};
-        *tuple  = output_tuple;
-        flag_ =1;
+        Tuple output_tuple = {value, &plan_->OutputSchema()};
+        *tuple = output_tuple;
+        flag_ = 1;
         return true;
       }
 
-      if(flag_==0){
+      if (flag_ == 0) {
         std::vector<Value> value{};
-        for(uint32_t i = 0 ;i<child_executor_->GetOutputSchema().GetColumnCount() ; i++){
-          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(),i));
+        for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
+          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(), i));
         }
-        for(uint32_t i = 0 ;i<right_table_info_->schema_.GetColumnCount(); i++){
+        for (uint32_t i = 0; i < right_table_info_->schema_.GetColumnCount(); i++) {
           value.push_back(ValueFactory::GetNullValueByType(right_table_info_->schema_.GetColumn(i).GetType()));
         }
-        Tuple output_tuple = {value,&plan_->OutputSchema()};
-        *tuple  = output_tuple;
+        Tuple output_tuple = {value, &plan_->OutputSchema()};
+        *tuple = output_tuple;
       }
 
-      if(!child_executor_->Next(left_temp_tuple_,rid) ){
+      if (!child_executor_->Next(left_temp_tuple_, rid)) {
         delete left_temp_tuple_;
         break;
       }
       flag_ = 0;
     }
 
-
-
   } else {
-
-    while(true){
-
-      std::vector<Value> values{plan_->key_predicate_->Evaluate(left_temp_tuple_,child_executor_->GetOutputSchema())};
-      Tuple tu = Tuple{values,index_info_->index_->GetKeySchema()};
+    while (true) {
+      std::vector<Value> values{plan_->key_predicate_->Evaluate(left_temp_tuple_, child_executor_->GetOutputSchema())};
+      Tuple tu = Tuple{values, index_info_->index_->GetKeySchema()};
       std::vector<RID> result;
-      index_info_->index_->ScanKey(tu,&result,exec_ctx_->GetTransaction());
+      index_info_->index_->ScanKey(tu, &result, exec_ctx_->GetTransaction());
 
-      if(result.size()){
+      if (!result.empty()) {
         std::vector<Value> value{};
-        for(uint32_t i = 0 ;i<child_executor_->GetOutputSchema().GetColumnCount() ; i++){
-          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(),i));
+        for (uint32_t i = 0; i < child_executor_->GetOutputSchema().GetColumnCount(); i++) {
+          value.push_back(left_temp_tuple_->GetValue(&child_executor_->GetOutputSchema(), i));
         }
-        for(uint32_t i = 0 ;i<right_table_info_->schema_.GetColumnCount(); i++){
-          value.push_back(tu.GetValue(&right_table_info_->schema_,i));
+        for (uint32_t i = 0; i < right_table_info_->schema_.GetColumnCount(); i++) {
+          value.push_back(tu.GetValue(&right_table_info_->schema_, i));
         }
-        Tuple output_tuple = {value,&plan_->OutputSchema()};
-        *tuple  = output_tuple;
+        Tuple output_tuple = {value, &plan_->OutputSchema()};
+        *tuple = output_tuple;
         return true;
       }
-     if(!child_executor_->Next(left_temp_tuple_,rid) ){
-       delete left_temp_tuple_;
-       break;
-     }
+      if (!child_executor_->Next(left_temp_tuple_, rid)) {
+        delete left_temp_tuple_;
+        break;
+      }
     }
-
-
   }
 
   return false;
