@@ -51,6 +51,9 @@ void HashJoinExecutor::Init() {
 
 auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   while (true) {
+    if (match_num_ != static_cast<int>(match_vec_.size())) {
+      throw Exception("异常size不想等");
+    }
     if (match_num_ != 0) {  //输出之前的匹配结果
       match_num_--;
       *tuple = *match_vec_.begin();
@@ -67,7 +70,8 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       join_key.join_keys_.push_back(p->Evaluate(tuple, left_child_->GetOutputSchema()));
     }
 
-    if (ht_.count(join_key) == 0 && plan_->GetJoinType() == JoinType::LEFT) {  //没有匹配到且还是left join 需要输出一个空
+    if (ht_.count(join_key) == 0 &&
+        plan_->GetJoinType() == JoinType::LEFT) {  //没有匹配到且还是left join 需要输出一个空
       match_vec_.clear();
       match_num_ = 1;
 
