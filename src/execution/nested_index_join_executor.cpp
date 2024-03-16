@@ -22,6 +22,7 @@ NestIndexJoinExecutor::NestIndexJoinExecutor(ExecutorContext *exec_ctx, const Ne
     // Note for 2023 Spring: You ONLY need to implement left join and inner join.
     throw bustub::NotImplementedException(fmt::format("join type {} not supported", plan->GetJoinType()));
   }
+  LOG_ERROR("nested index join build");
 }
 
 void NestIndexJoinExecutor::Init() {
