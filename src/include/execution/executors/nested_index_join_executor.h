@@ -54,6 +54,6 @@ class NestIndexJoinExecutor : public AbstractExecutor {
   TableInfo *right_table_info_ = nullptr;
   IndexInfo *index_info_ = nullptr;
   Tuple *left_temp_tuple_ = nullptr;
-  int flag_=0;
+  int flag_ = 0;
 };
 }  // namespace bustub

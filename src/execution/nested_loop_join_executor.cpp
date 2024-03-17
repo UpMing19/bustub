@@ -24,7 +24,7 @@ NestedLoopJoinExecutor::NestedLoopJoinExecutor(ExecutorContext *exec_ctx, const 
       plan_(plan),
       left_executor_(std::move(left_executor)),
       right_executor_(std::move(right_executor)) {
-  if (!(plan->GetJoinType() == JoinType::LEFT || plan->GetJoinType() == JoinType::INNER)) {
+  if (plan->GetJoinType() != JoinType::LEFT && plan->GetJoinType() != JoinType::INNER) {
     // Note for 2023 Spring: You ONLY need to implement left join and inner join.
     throw bustub::NotImplementedException(fmt::format("join type {} not supported", plan->GetJoinType()));
   }
@@ -41,7 +41,7 @@ void NestedLoopJoinExecutor::Init() {
   temp_left_ = new Tuple();
   rt_ = new Tuple();
   bool res = left_executor_->Next(temp_left_, &r);
-  std::cout << "## : " << res << std::endl;
+  std::cout << "## : " << res << '\n';
   flag_ = 0;
   LOG_INFO("join join init2 ");
 }
@@ -81,7 +81,7 @@ auto NestedLoopJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
         Tuple output_tuple = Tuple{values, &GetOutputSchema()};
         *tuple = output_tuple;
         flag_ = 1;
-        { right_executor_->Init(); }  //这里之所以用同一条目重新查一边右表是为了能够break掉循环 return false终止查询
+        { right_executor_->Init(); }  // 这里之所以用同一条目重新查一边右表是为了能够break掉循环 return false终止查询
         return true;
       }
 

@@ -22,7 +22,7 @@ HashJoinExecutor::HashJoinExecutor(ExecutorContext *exec_ctx, const HashJoinPlan
       plan_(plan),
       left_child_(std::move(left_child)),
       right_child_(std::move(right_child)) {
-  if (!(plan->GetJoinType() == JoinType::LEFT || plan->GetJoinType() == JoinType::INNER)) {
+  if (plan->GetJoinType() != JoinType::LEFT && plan->GetJoinType() != JoinType::INNER) {
     // Note for 2023 Spring: You ONLY need to implement left join and inner join.
     throw bustub::NotImplementedException(fmt::format("join type {} not supported", plan->GetJoinType()));
   }
@@ -35,8 +35,8 @@ void HashJoinExecutor::Init() {
   match_vec_.clear();
   left_child_->Init();
   right_child_->Init();
-  std::cout << " LeftJoinKeyExpressions[0] plan " << plan_->LeftJoinKeyExpressions()[0] << std::endl;
-  std::cout << " RightJoinKeyExpressions[0] plan " << plan_->RightJoinKeyExpressions()[0] << std::endl;
+  std::cout << " LeftJoinKeyExpressions[0] plan " << plan_->LeftJoinKeyExpressions()[0] << '\n';
+  std::cout << " RightJoinKeyExpressions[0] plan " << plan_->RightJoinKeyExpressions()[0] << '\n';
   Tuple tuple;
   RID r;
 
@@ -54,7 +54,7 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     if (match_num_ != static_cast<int>(match_vec_.size())) {
       throw Exception("异常size不想等");
     }
-    if (match_num_ != 0) {  //输出之前的匹配结果
+    if (match_num_ != 0) {  // 输出之前的匹配结果
       match_num_--;
       *tuple = *match_vec_.begin();
       *rid = tuple->GetRid();
@@ -71,7 +71,7 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     }
 
     if (ht_.count(join_key) == 0 &&
-        plan_->GetJoinType() == JoinType::LEFT) {  //没有匹配到且还是left join 需要输出一个空
+        plan_->GetJoinType() == JoinType::LEFT) {  // 没有匹配到且还是left join 需要输出一个空
       match_vec_.clear();
       match_num_ = 1;
 
@@ -84,7 +84,7 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
       Tuple match_tuple = Tuple{values, &GetOutputSchema()};
       match_vec_.push_back(match_tuple);
-    } else if (ht_.count(join_key) != 0) {  //这里匹配结果可能有多个，一个一个输出
+    } else if (ht_.count(join_key) != 0) {  // 这里匹配结果可能有多个，一个一个输出
       match_vec_.clear();
 
       for (const auto &right_tuple : ht_[join_key].join_values_) {

@@ -337,8 +337,7 @@ TEST(BPlusTreeConcurrentTest, DISABLED_MixTest1) {
 }
 
 TEST(BPlusTreeConcurrentTest, MixTest2) {
-
-  while(1) {
+  while (1) {
     // create KeyComparator and index schema
     auto key_schema = ParseCreateStatement("a bigint");
     GenericComparator<8> comparator(key_schema.get());
