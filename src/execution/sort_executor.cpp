@@ -1,4 +1,5 @@
 #include "execution/executors/sort_executor.h"
+#include "common/logger.h"
 #include "type/type.h"
 
 namespace bustub {
@@ -12,6 +13,7 @@ SortExecutor::SortExecutor(ExecutorContext *exec_ctx, const SortPlanNode *plan,
 void SortExecutor::Init() {
   child_executor_->Init();
   sort_vec_.clear();
+  LOG_DEBUG("SortExecutor Init ...");
   now_ = 0;
   Tuple tuple;
   RID rid;

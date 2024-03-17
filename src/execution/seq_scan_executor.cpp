@@ -44,7 +44,7 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   // LOG_INFO("is delete %s", std::to_string(tuple1.first.is_deleted_).c_str());  //
   // std::to_string(key.ToString()).c_str()
   //  std::cout<<"dizhi : "<<&(table_iterator_)<<std::endl;
-  LOG_INFO("Seq Next ...");
+  // LOG_INFO("Seq Next ...");
   if (table_iterator_ == nullptr) {
     throw Exception("异常0table_iterator_ = NULL");
   }
@@ -54,7 +54,7 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       break;
     }
     std::pair<TupleMeta, Tuple> tuple1 = table_iterator_->GetTuple();
-    LOG_INFO("search ...!");
+    // LOG_INFO("search ...!");
     if (!tuple1.first.is_deleted_) {
       *tuple = tuple1.second;  // copy
       if (tuple1.second.GetRid() == table_iterator_->GetRID()) {
@@ -64,7 +64,7 @@ auto SeqScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
       *rid = tuple1.second.GetRid();  // original
       ++(*table_iterator_);
-      LOG_INFO("search successful!");
+      // LOG_INFO("search successful!");
       return true;
     }
     ++(*table_iterator_);
