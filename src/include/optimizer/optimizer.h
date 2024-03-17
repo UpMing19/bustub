@@ -10,6 +10,7 @@
 #include "catalog/catalog.h"
 #include "concurrency/transaction.h"
 #include "execution/expressions/abstract_expression.h"
+#include "execution/expressions/comparison_expression.h"
 #include "execution/plans/abstract_plan.h"
 
 namespace bustub {
@@ -47,7 +48,9 @@ class Optimizer {
    * with multiple eq conditions.
    */
   auto OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef;
-
+  auto GetLeftAndRightKeyExpressions(const ComparisonExpression *left_expr,
+                                     std::vector<AbstractExpressionRef> &left_key_expressions,
+                                     std::vector<AbstractExpressionRef> &right_key_expressions) -> void;
   /**
    * @brief optimize nested loop join into index join.
    */
