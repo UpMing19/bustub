@@ -13,6 +13,7 @@
 #pragma once
 
 #include <memory>
+#include <queue>
 #include <utility>
 #include <vector>
 
@@ -23,6 +24,10 @@
 #include "storage/table/tuple.h"
 
 namespace bustub {
+
+struct Cmp {
+  auto operator()(const Tuple &t1, const Tuple &t2) const -> bool { return true; }
+};
 
 /**
  * The TopNExecutor executor executes a topn.
@@ -63,5 +68,9 @@ class TopNExecutor : public AbstractExecutor {
   const TopNPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+  std::vector<Tuple> top_vec_;
+  size_t now_ = 0;
+  // todo:如果在这里定义优先队列，怎么优雅的把cmp函数定义好传入进去
 };
+
 }  // namespace bustub
