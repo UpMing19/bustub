@@ -61,7 +61,7 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       match_vec_.erase(match_vec_.begin());
       return true;
     }
-    if (!Next(tuple, rid)) {
+    if (!left_child_->Next(tuple, rid)) {
       return false;
     }
 
@@ -101,7 +101,6 @@ auto HashJoinExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
 
       match_num_ = match_vec_.size();
-      return true;
     }
   }
 
