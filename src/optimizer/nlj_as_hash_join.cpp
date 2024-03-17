@@ -26,7 +26,7 @@ auto Optimizer::OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> Abstra
 
   std::vector<AbstractPlanNodeRef> children;
   for (const auto &child : plan->GetChildren()) {
-    children.emplace_back(OptimizeNLJAsIndexJoin(child));
+    children.emplace_back(OptimizeNLJAsHashJoin(child));
   }
   auto optimized_plan = plan->CloneWithChildren(std::move(children));
 
@@ -40,10 +40,12 @@ auto Optimizer::OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> Abstra
       if (expr->comp_type_ == ComparisonType::Equal) {
         std::vector<AbstractExpressionRef> left_key_expressions;
         std::vector<AbstractExpressionRef> right_key_expressions;
+        std::cout << "expr: " << expr->ToString() << std::endl;
+        // std::cout << "right_expr: " << right_expr->ToString() << std::endl;
         GetLeftAndRightKeyExpressions(expr, left_key_expressions, right_key_expressions);
         return std::make_shared<HashJoinPlanNode>(nlj_plan.output_schema_, nlj_plan.GetLeftPlan(),
-                                                  nlj_plan.GetRightPlan(), left_key_expressions,
-                                                  right_key_expressions, nlj_plan.GetJoinType());
+                                                  nlj_plan.GetRightPlan(), left_key_expressions, right_key_expressions,
+                                                  nlj_plan.GetJoinType());
       }
     } else if (const auto *expr = dynamic_cast<const LogicExpression *>(nlj_plan.Predicate().get()); expr != nullptr) {
       if (expr->logic_type_ == LogicType::And) {
@@ -53,6 +55,8 @@ auto Optimizer::OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> Abstra
             left_expr != nullptr) {
           if (const auto *right_expr = dynamic_cast<const ComparisonExpression *>(expr->children_[1].get());
               right_expr != nullptr) {
+            std::cout << "left_expr: " << left_expr->ToString() << std::endl;
+            std::cout << "right_expr: " << right_expr->ToString() << std::endl;
             GetLeftAndRightKeyExpressions(left_expr, left_key_expressions, right_key_expressions);
             GetLeftAndRightKeyExpressions(right_expr, left_key_expressions, right_key_expressions);
             return std::make_shared<HashJoinPlanNode>(nlj_plan.output_schema_, nlj_plan.GetLeftPlan(),
