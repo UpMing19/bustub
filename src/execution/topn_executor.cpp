@@ -47,7 +47,7 @@ void TopNExecutor::Init() {
     top_vec_.push_back(top_n_queue.top());
     top_n_queue.pop();
   }
-  std::reverse(top_vec_.begin(), top_vec_.end());
+  // std::reverse(top_vec_.begin(), top_vec_.end());
 }
 
 auto TopNExecutor::Next(Tuple *tuple, RID *rid) -> bool {
