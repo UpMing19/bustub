@@ -55,6 +55,6 @@ class SortExecutor : public AbstractExecutor {
   const SortPlanNode *plan_;
   std::unique_ptr<AbstractExecutor> child_executor_;
   std::vector<Tuple> sort_vec_;
-  uint64_t now_=0;
+  uint64_t now_ = 0;
 };
 }  // namespace bustub

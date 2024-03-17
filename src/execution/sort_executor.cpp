@@ -12,6 +12,7 @@ SortExecutor::SortExecutor(ExecutorContext *exec_ctx, const SortPlanNode *plan,
 void SortExecutor::Init() {
   child_executor_->Init();
   sort_vec_.clear();
+  now_ = 0;
   Tuple tuple;
   RID rid;
   while (child_executor_->Next(&tuple, &rid)) {
@@ -20,14 +21,18 @@ void SortExecutor::Init() {
 
   std::sort(sort_vec_.begin(), sort_vec_.end(), [&](const Tuple t1, const Tuple t2) {
     for (const std::pair<OrderByType, AbstractExpressionRef> &p : plan_->GetOrderBy()) {
-      Value v1 = p.second->Evaluate(&t1, GetOutputSchema());
-      Value v2 = p.second->Evaluate(&t2, GetOutputSchema());
+      Value v1 = p.second->Evaluate(&t1, child_executor_->GetOutputSchema());
+      Value v2 = p.second->Evaluate(&t2, child_executor_->GetOutputSchema());
       if (OrderByType::DESC == p.first) {
-        CmpBool c = v2.CompareLessThanEquals(v1);
-        return c == CmpBool::CmpTrue;
+        if (v2.CompareEquals(v1) != CmpBool::CmpTrue) {
+          CmpBool c = v2.CompareLessThan(v1);
+          return c == CmpBool::CmpTrue;
+        }
       }
-      CmpBool c = v2.CompareLessThanEquals(v1);
-      return c != CmpBool::CmpTrue;
+      if (v2.CompareEquals(v1) != CmpBool::CmpTrue) {
+        CmpBool c = v2.CompareLessThan(v1);
+        return c != CmpBool::CmpTrue;
+      }
     }
     return true;
   });

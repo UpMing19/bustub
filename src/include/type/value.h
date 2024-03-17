@@ -17,6 +17,7 @@
 #include <string>
 #include <utility>
 
+#include "common/logger.h"
 #include "fmt/format.h"
 
 #include "type/limits.h"

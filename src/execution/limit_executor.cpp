@@ -33,6 +33,9 @@ auto LimitExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (now_ == plan_->GetLimit()) {
     return false;
   }
+  if (now_ == sort_vec_.size()) {
+    return false;
+  }
 
   *tuple = sort_vec_[now_];
   *rid = tuple->GetRid();
