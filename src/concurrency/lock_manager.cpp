@@ -106,6 +106,8 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
         return true;
       }
     }
+    LOG_ERROR("txn变成aborted状态,且遍历未找到");
+    return true;
   }
 
   for (auto &it : lockRequestQueue->request_queue_) {
@@ -116,18 +118,19 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
 
   if (lockRequestQueue->upgrading_ != INVALID_TXN_ID) {
     if (lockRequestQueue->upgrading_ == txn->GetTransactionId()) {
-      for (auto it = lockRequestQueue->request_queue_.begin(); it != lockRequestQueue->request_queue_.end(); it++) {
-        if (txn->GetTransactionId() == (*it)->txn_id_ && !(*it)->granted_) {
-          lockRequestQueue->upgrading_ = INVALID_TXN_ID;
-          (*it)->granted_ = true;
+      lockRequestQueue->upgrading_ = INVALID_TXN_ID;
+      for (auto &it : lockRequestQueue->request_queue_) {
+        if (txn->GetTransactionId() == it->txn_id_ && !it->granted_) {
+          // lockRequestQueue->upgrading_ = INVALID_TXN_ID;
+          it->granted_ = true;
           return true;
         }
       }
       LOG_ERROR("升级锁的时候，锁已经被授权了 或者 再队列中没有找到这个请求");
-      // throw Exception("升级锁的时候，锁已经被授权了 或者 再队列中没有找到这个请求");
+      throw Exception("升级锁的时候，锁已经被授权了 或者 再队列中没有找到这个请求");
       return false;
     }
-    LOG_ERROR("升级锁的时候，当前事务id等于正在升级锁的事务id");
+    LOG_ERROR("升级锁的时候，当前事务id不等于正在升级锁的事务id");
     return false;
   }
 
@@ -144,7 +147,7 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
     if (!CheckLockCanCompatible(lock_mode, it->lock_mode_)) {
       return false;
     }
-    // it->granted_ = true; // todo 兼容的话可以一起授予锁
+    it->granted_ = true;  // todo 兼容的话可以一起授予锁
   }
 
   LOG_ERROR("漏掉的某些情况导致默认return");
@@ -152,23 +155,41 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
 }
 
 auto LockManager::CheckAllRowsUnlock(Transaction *txn, const table_oid_t &oid) -> bool {
+  //  row_lock_map_latch_.lock();
+  //  // todo 或许这里map能提前解锁
+  //  for (auto &p : row_lock_map_) {
+  //    auto lrq = p.second;
+  //    lrq->latch_.lock();
+  //
+  //    for (auto it = lrq->request_queue_.begin(); it != lrq->request_queue_.end(); it++) {
+  //      if ((*it)->granted_ && (*it)->oid_ == oid && (*it)->txn_id_ == txn->GetTransactionId()) {
+  //        lrq->latch_.unlock();
+  //        row_lock_map_latch_.unlock();
+  //        return false;
+  //      }
+  //    }
+  //    lrq->latch_.unlock();
+  //  }
+  //
+  //  row_lock_map_latch_.unlock();
+  //  return true;
   row_lock_map_latch_.lock();
-  // todo 或许这里map能提前解锁
-  for (auto &p : row_lock_map_) {
-    auto lrq = p.second;
-    lrq->latch_.lock();
-
-    for (auto it = lrq->request_queue_.begin(); it != lrq->request_queue_.end(); it++) {
-      if ((*it)->granted_ && (*it)->oid_ == oid && (*it)->txn_id_ == txn->GetTransactionId()) {
+  for (auto [k, v] : row_lock_map_) {
+    row_lock_map_latch_.unlock();
+    v->latch_.lock();
+    for (auto iter = v->request_queue_.begin(); iter != v->request_queue_.end(); iter++) {
+      if ((*iter)->txn_id_ == txn->GetTransactionId() && (*iter)->oid_ == oid && (*iter)->granted_) {
+        v->latch_.unlock();
         row_lock_map_latch_.unlock();
-        lrq->latch_.unlock();
         return false;
       }
     }
-    lrq->latch_.unlock();
+    v->latch_.unlock();
+    row_lock_map_latch_.lock();
   }
 
   row_lock_map_latch_.unlock();
+
   return true;
 }
 
@@ -307,8 +328,6 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
     RemoveFromLockTableSet(txn, (*it)->lock_mode_, oid);
     lock_request_queue->request_queue_.erase(it);
 
-    lock_request_queue->cv_.notify_all();
-
     if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
       if (p->lock_mode_ == LockMode::EXCLUSIVE || p->lock_mode_ == LockMode::SHARED) {
         txn->SetState(TransactionState::SHRINKING);
@@ -324,7 +343,7 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
         txn->SetState(TransactionState::SHRINKING);
       }
     }
-
+    lock_request_queue->cv_.notify_all();
     delete p;
     return true;
   }
@@ -366,6 +385,8 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
     }
   }
+
+  // todo 检查是否持有 row 对应的 table lock。必须先持有 table lock 再持有 row lock。
 
   row_lock_map_latch_.lock();
   if (row_lock_map_.count(rid) == 0) {
@@ -479,6 +500,17 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
 
 void LockManager::UnlockAll() {
   // You probably want to unlock all table and txn locks here.
+
+  for (auto &p : row_lock_map_) {
+    for (auto pp : p.second->request_queue_) {
+      delete pp;
+    }
+  }
+  for (auto &p : table_lock_map_) {
+    for (auto pp : p.second->request_queue_) {
+      delete pp;
+    }
+  }
 }
 
 void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {}
