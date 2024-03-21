@@ -219,7 +219,7 @@ class AggregationExecutor : public AbstractExecutor {
     for (const auto &expr : plan_->GetGroupBys()) {
       keys.emplace_back(expr->Evaluate(tuple, child_->GetOutputSchema()));
     }
-    LOG_INFO("make key size %lu", keys.size());
+    // LOG_INFO("make key size %lu", keys.size());
     return {keys};
   }
 
