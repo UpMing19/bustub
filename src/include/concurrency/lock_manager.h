@@ -98,17 +98,19 @@ class LockManager {
 
   /**
    * [LOCK_NOTE]
-   *
+   * LockTable() and LockRow() 是阻塞的，如果事务失败，不授权锁并且return false
    * GENERAL BEHAVIOUR:
    *    Both LockTable() and LockRow() are blocking methods; they should wait till the lock is granted and then return.
    *    If the transaction was aborted in the meantime, do not grant the lock and return false.
    *
-   *
+   * LM对每个资源维护一个锁对等待队列，FIFO对方式授权
+   * 多个事务不冲突时可以同时授予（也要FIFO）
    * MULTIPLE TRANSACTIONS:
    *    LockManager should maintain a queue for each resource; locks should be granted to transactions in a FIFO manner.
    *    If there are multiple compatible lock requests, all should be granted at the same time
    *    as long as FIFO is honoured.
    *
+   * 表级锁支持所有锁模式，行级锁不支持意向锁
    * SUPPORTED LOCK MODES:
    *    Table locking should support all lock modes.
    *    Row locking should not support Intention locks. Attempting this should set the TransactionState as
@@ -211,6 +213,14 @@ class LockManager {
    *    After a resource is unlocked, lock manager should update the transaction's lock sets
    *    appropriately (check transaction.h)
    */
+  auto CheckLockCanUpgrade(LockMode lock_mode1, LockMode lock_mode2) -> bool;
+  auto CheckLockCanCompatible(LockMode lock_mode1, LockMode lock_mode2) -> bool;
+  auto RemoveFromLockTableSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> void;
+  auto AddToLockTableSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> void;
+  auto GrantLock(Transaction *txn, LockMode lock_mode, std::shared_ptr<LockRequestQueue> &lockRequestQueue) -> bool;
+  auto CheckAllRowsUnlock(Transaction *txn, const table_oid_t &oid) -> bool;
+  auto AddIntoTxnRowLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> void;
+  auto RemoveTxnRowLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> void;
 
   /**
    * Acquire a lock on table_oid_t in the given lock_mode.
@@ -256,6 +266,7 @@ class LockManager {
    * @param rid the RID of the row to be locked
    * @return true if the upgrade is successful, false otherwise
    */
+
   auto LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool;
 
   /**
