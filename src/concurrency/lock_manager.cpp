@@ -147,7 +147,7 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
     if (!CheckLockCanCompatible(lock_mode, it->lock_mode_)) {
       return false;
     }
-    it->granted_ = true;  // todo 兼容的话可以一起授予锁
+    // it->granted_ = true;  // todo 兼容的话可以一起授予锁
   }
 
   LOG_ERROR("漏掉的某些情况导致默认return");
@@ -204,7 +204,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
       if (lock_mode != LockMode::EXCLUSIVE && lock_mode != LockMode::INTENTION_EXCLUSIVE) {
         LOG_ERROR("Growing阶段RU隔离级别下不允许锁类型");
-        throw Exception("Growing阶段RU隔离级别下不允许锁类型");
+        return false;
       }
     }
   }
@@ -212,24 +212,24 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   if (txn->GetState() == TransactionState::SHRINKING) {
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
       LOG_ERROR("SHRINKING阶段RU隔离级别下不允许获取锁");
-      txn->SetState(TransactionState::ABORTED);
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+      return false;
     }
     if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
       // SHRINKING阶段可以获取短期的读锁
       if (lock_mode != LockMode::INTENTION_SHARED && lock_mode != LockMode::SHARED) {
         LOG_ERROR("SHRINKING阶段RC隔离级别下不允许获取锁类型");
-        txn->SetState(TransactionState::ABORTED);
-        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+        return false;
       }
     }
     if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
       LOG_ERROR("SHRINKING阶段RR隔离级别下不允许获取锁类型");
-      txn->SetState(TransactionState::ABORTED);
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
+      return false;
     }
   }
-  // LOG_INFO("QAQ");
+
+  // printf("DEBUG:  --- id: %d  Mode：%d ck2\n", txn->GetTransactionId(),(int)lock_mode);
+
+  LOG_INFO("LOCK TABLE ....");
   table_lock_map_latch_.lock();
   if (table_lock_map_.count(oid) == 0) {
     std::shared_ptr<LockRequestQueue> lock_request_queue = std::make_shared<LockRequestQueue>();
@@ -253,22 +253,22 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     if (lock_request_queue->upgrading_ != INVALID_TXN_ID) {
       // todo 当前实现不允许同步升级，如果新增一条升级队列是可以的？
       // 此时正在锁升级
-      txn->SetState(TransactionState::ABORTED);
       LOG_ERROR("此时正在锁升级");
+      txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
     }
     if (!CheckLockCanUpgrade(p->lock_mode_, lock_mode)) {
       // 锁升级不兼容
-      txn->SetState(TransactionState::ABORTED);
       LOG_ERROR("锁升级不兼容");
+      txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
 
     // 释放当前已经持有的锁，并在queue中标记我正在升级
 
     lock_request_queue->upgrading_ = txn->GetTransactionId();
-    RemoveFromLockTableSet(txn, (*it)->lock_mode_, oid);
     lock_request_queue->request_queue_.erase(it);
+    RemoveFromLockTableSet(txn, p->lock_mode_, oid);
     delete p;
     lock_request_queue->request_queue_.push_back(new LockRequest(txn->GetTransactionId(), lock_mode, oid));
     flag = 1;
@@ -280,6 +280,7 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
   }
 
   while (!GrantLock(txn, lock_mode, lock_request_queue)) {
+    // printf("XUNHUAN:  --- id: %d  Mode：%d ck2\n", txn->GetTransactionId(),(int)lock_mode);
     lock_request_queue->cv_.wait(lock);
   }
 
@@ -308,13 +309,11 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
   }
 
   table_lock_map_latch_.lock();
-  if (table_lock_map_.count(oid) == 0) {
-    std::shared_ptr<LockRequestQueue> lock_request_queue = std::make_shared<LockRequestQueue>();
-    table_lock_map_[oid] = lock_request_queue;
-  }
   auto lock_request_queue = table_lock_map_[oid];
   std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   table_lock_map_latch_.unlock();
+
+  LOG_INFO("UNLOCK TABLE ....");
 
   for (auto it = lock_request_queue->request_queue_.begin(); it != lock_request_queue->request_queue_.end(); it++) {
     if ((*it)->txn_id_ != txn->GetTransactionId()) {
@@ -322,11 +321,9 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
     }
     if (!(*it)->granted_) {
       LOG_ERROR("解锁时候找到了对应事务，但是没有被授予锁");
-      return false;
+      continue;
     }
     auto p = *it;
-    RemoveFromLockTableSet(txn, (*it)->lock_mode_, oid);
-    lock_request_queue->request_queue_.erase(it);
 
     if (txn->GetIsolationLevel() == IsolationLevel::REPEATABLE_READ) {
       if (p->lock_mode_ == LockMode::EXCLUSIVE || p->lock_mode_ == LockMode::SHARED) {
@@ -343,8 +340,11 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
         txn->SetState(TransactionState::SHRINKING);
       }
     }
-    lock_request_queue->cv_.notify_all();
+    RemoveFromLockTableSet(txn, p->lock_mode_, oid);
+    lock_request_queue->request_queue_.erase(it);
     delete p;
+    lock_request_queue->cv_.notify_all();
+
     return true;
   }
 
@@ -354,6 +354,7 @@ auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool 
 }
 
 auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) -> bool {
+  throw Exception("Row暂时异常");
   if (txn->GetState() == TransactionState::COMMITTED || txn->GetState() == TransactionState::ABORTED) {
     LOG_ERROR("逻辑异常4");
     // throw Exception("逻辑异常4");
@@ -445,6 +446,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
+  throw Exception("unLockRow暂时异常");
   // todo 这里为什么不能这样return
   //  if (txn->GetState() == TransactionState::COMMITTED || txn->GetState() == TransactionState::ABORTED) {
   //    LOG_ERROR("逻辑异常5");
