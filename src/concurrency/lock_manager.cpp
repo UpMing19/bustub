@@ -155,41 +155,23 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
 }
 
 auto LockManager::CheckAllRowsUnlock(Transaction *txn, const table_oid_t &oid) -> bool {
-  //  row_lock_map_latch_.lock();
-  //  // todo 或许这里map能提前解锁
-  //  for (auto &p : row_lock_map_) {
-  //    auto lrq = p.second;
-  //    lrq->latch_.lock();
-  //
-  //    for (auto it = lrq->request_queue_.begin(); it != lrq->request_queue_.end(); it++) {
-  //      if ((*it)->granted_ && (*it)->oid_ == oid && (*it)->txn_id_ == txn->GetTransactionId()) {
-  //        lrq->latch_.unlock();
-  //        row_lock_map_latch_.unlock();
-  //        return false;
-  //      }
-  //    }
-  //    lrq->latch_.unlock();
-  //  }
-  //
-  //  row_lock_map_latch_.unlock();
-  //  return true;
   row_lock_map_latch_.lock();
-  for (auto [k, v] : row_lock_map_) {
-    row_lock_map_latch_.unlock();
-    v->latch_.lock();
-    for (auto iter = v->request_queue_.begin(); iter != v->request_queue_.end(); iter++) {
-      if ((*iter)->txn_id_ == txn->GetTransactionId() && (*iter)->oid_ == oid && (*iter)->granted_) {
-        v->latch_.unlock();
+  // todo 或许这里map能提前解锁
+  for (auto &p : row_lock_map_) {
+    auto lrq = p.second;
+    lrq->latch_.lock();
+
+    for (auto it = lrq->request_queue_.begin(); it != lrq->request_queue_.end(); it++) {
+      if ((*it)->granted_ && (*it)->oid_ == oid && (*it)->txn_id_ == txn->GetTransactionId()) {
+        lrq->latch_.unlock();
         row_lock_map_latch_.unlock();
         return false;
       }
     }
-    v->latch_.unlock();
-    row_lock_map_latch_.lock();
+    lrq->latch_.unlock();
   }
 
   row_lock_map_latch_.unlock();
-
   return true;
 }
 
@@ -227,9 +209,6 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
     }
   }
 
-  // printf("DEBUG:  --- id: %d  Mode：%d ck2\n", txn->GetTransactionId(),(int)lock_mode);
-
-  LOG_INFO("LOCK TABLE ....");
   table_lock_map_latch_.lock();
   if (table_lock_map_.count(oid) == 0) {
     std::shared_ptr<LockRequestQueue> lock_request_queue = std::make_shared<LockRequestQueue>();
@@ -250,18 +229,20 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
       // 请求类型相同且已经授权 返回
       return true;
     }
+
+    if (!CheckLockCanUpgrade(p->lock_mode_, lock_mode)) {
+      // 锁升级不兼容
+      LOG_ERROR("锁升级不兼容");
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
+    }
+
     if (lock_request_queue->upgrading_ != INVALID_TXN_ID) {
       // todo 当前实现不允许同步升级，如果新增一条升级队列是可以的？
       // 此时正在锁升级
       LOG_ERROR("此时正在锁升级");
       txn->SetState(TransactionState::ABORTED);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
-    }
-    if (!CheckLockCanUpgrade(p->lock_mode_, lock_mode)) {
-      // 锁升级不兼容
-      LOG_ERROR("锁升级不兼容");
-      txn->SetState(TransactionState::ABORTED);
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
 
     // 释放当前已经持有的锁，并在queue中标记我正在升级
@@ -295,31 +276,27 @@ auto LockManager::LockTable(Transaction *txn, LockMode lock_mode, const table_oi
 }
 
 auto LockManager::UnlockTable(Transaction *txn, const table_oid_t &oid) -> bool {
-  //    todo 这里为什么不能这样return
-  //  if (txn->GetState() == TransactionState::COMMITTED || txn->GetState() == TransactionState::ABORTED) {
-  //    LOG_ERROR("逻辑异常3");
-  //    // throw Exception("逻辑异常3");
-  //    txn->SetState(TransactionState::ABORTED);
-  //    return false;
-  //  }
-
   if (!CheckAllRowsUnlock(txn, oid)) {
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_UNLOCKED_BEFORE_UNLOCKING_ROWS);
   }
 
   table_lock_map_latch_.lock();
+  if (table_lock_map_.count(oid) == 0) {
+    std::shared_ptr<LockRequestQueue> lock_request_queue = std::make_shared<LockRequestQueue>();
+    table_lock_map_[oid] = lock_request_queue;
+    LOG_ERROR("unlock table的时候没找到队列");
+  }
   auto lock_request_queue = table_lock_map_[oid];
   std::unique_lock<std::mutex> lock(lock_request_queue->latch_);
   table_lock_map_latch_.unlock();
-
-  LOG_INFO("UNLOCK TABLE ....");
 
   for (auto it = lock_request_queue->request_queue_.begin(); it != lock_request_queue->request_queue_.end(); it++) {
     if ((*it)->txn_id_ != txn->GetTransactionId()) {
       continue;
     }
     if (!(*it)->granted_) {
+      throw Exception("解锁时候找到了对应事务，但是没有被授予锁");
       LOG_ERROR("解锁时候找到了对应事务，但是没有被授予锁");
       continue;
     }
