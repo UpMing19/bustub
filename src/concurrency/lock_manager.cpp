@@ -18,6 +18,44 @@
 
 namespace bustub {
 
+auto LockManager::IsTableLocked(Transaction *txn, const table_oid_t &oid, const std::vector<LockMode> &lock_modes)
+    -> std::optional<LockMode> {
+  std::optional<LockMode> mode = std::nullopt;
+  for (const auto &lock_mode : lock_modes) {
+    switch (lock_mode) {
+      case LockMode::SHARED:
+        if (txn->IsTableSharedLocked(oid)) {
+          mode = std::make_optional<LockMode>(LockMode::SHARED);
+        }
+        break;
+      case LockMode::EXCLUSIVE:
+        if (txn->IsTableExclusiveLocked(oid)) {
+          mode = std::make_optional<LockMode>(LockMode::EXCLUSIVE);
+        }
+        break;
+      case LockMode::INTENTION_EXCLUSIVE:
+        if (txn->IsTableIntentionExclusiveLocked(oid)) {
+          mode = std::make_optional<LockMode>(LockMode::INTENTION_EXCLUSIVE);
+        }
+        break;
+      case LockMode::INTENTION_SHARED:
+        if (txn->IsTableIntentionSharedLocked(oid)) {
+          mode = std::make_optional<LockMode>(LockMode::INTENTION_SHARED);
+        }
+        break;
+      case LockMode::SHARED_INTENTION_EXCLUSIVE:
+        if (txn->IsTableSharedIntentionExclusiveLocked(oid)) {
+          mode = std::make_optional<LockMode>(LockMode::SHARED_INTENTION_EXCLUSIVE);
+        }
+        break;
+    }
+    if (mode.has_value()) {
+      return mode;
+    }
+  }
+  return std::nullopt;
+}
+
 auto LockManager::CheckLockCanUpgrade(LockMode lock_mode1, LockMode lock_mode2) -> bool {
   if (lock_mode1 == LockMode::INTENTION_SHARED) {
     return lock_mode2 == LockMode::EXCLUSIVE || lock_mode2 == LockMode::SHARED ||
@@ -390,6 +428,9 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
       LOG_ERROR("ROW-SHRINKING阶段RU隔离级别下不允许获取锁");
       txn->SetState(TransactionState::ABORTED);
+      if (lock_mode == LockMode::SHARED) {
+        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
+      }
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
     }
     if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
@@ -408,6 +449,28 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   }
 
   // todo 检查是否持有 row 对应的 table lock。必须先持有 table lock 再持有 row lock。
+
+  if (lock_mode == LockMode::SHARED) {
+    // 表可以持有任意类型的锁
+    std::vector<LockMode> locks = {LockMode::EXCLUSIVE, LockMode::SHARED, LockMode::INTENTION_SHARED,
+                                   LockMode::SHARED_INTENTION_EXCLUSIVE, LockMode::INTENTION_EXCLUSIVE};
+    if (!IsTableLocked(txn, oid, locks)) {
+      LOG_ERROR("未先获取表锁1");
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    }
+  } else if (lock_mode == LockMode::EXCLUSIVE) {
+    std::vector<LockMode> locks = {LockMode::EXCLUSIVE, LockMode::SHARED_INTENTION_EXCLUSIVE,
+                                   LockMode::INTENTION_EXCLUSIVE};
+
+    if (!IsTableLocked(txn, oid, locks)) {
+      LOG_ERROR("未先获取表锁2");
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    }
+  } else {
+    throw Exception("lock row中有意料之外的锁类型");
+  }
 
   row_lock_map_latch_.lock();
   if (row_lock_map_.count(rid) == 0) {

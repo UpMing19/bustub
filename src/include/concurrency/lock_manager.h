@@ -213,6 +213,8 @@ class LockManager {
    *    After a resource is unlocked, lock manager should update the transaction's lock sets
    *    appropriately (check transaction.h)
    */
+  auto IsTableLocked(Transaction *txn, const table_oid_t &oid, const std::vector<LockMode> &lock_modes)
+      -> std::optional<LockMode>;
   auto CheckLockCanUpgrade(LockMode lock_mode1, LockMode lock_mode2) -> bool;
   auto CheckLockCanCompatible(LockMode lock_mode1, LockMode lock_mode2) -> bool;
   auto RemoveFromLockTableSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid) -> void;
