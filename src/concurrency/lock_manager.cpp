@@ -119,8 +119,10 @@ auto LockManager::AddToLockTableSet(Transaction *txn, LockMode lock_mode, const 
 
 void LockManager::AddIntoTxnRowLockSet(Transaction *txn, LockMode lock_mode, const table_oid_t &oid, const RID &rid) {
   if (lock_mode == LockMode::SHARED) {
+    // AddToLockTableSet(txn, lock_mode, oid);
     (*txn->GetSharedRowLockSet())[oid].insert(rid);
   } else if (lock_mode == LockMode::EXCLUSIVE) {
+    // RemoveFromLockTableSet(txn, lock_mode, oid);
     (*txn->GetExclusiveRowLockSet())[oid].insert(rid);
   }
 }
@@ -156,8 +158,9 @@ auto LockManager::GrantLock(Transaction *txn, LockMode lock_mode, std::shared_pt
 
   for (auto &it : lockRequestQueue->request_queue_) {
     if (!CheckLockCanCompatible(it->lock_mode_, lock_mode) && it->granted_) {
-      LOG_ERROR("锁升级不兼容已经授权的 LOCK TABLE /n, txnID = %d, LOCkMODE = %d", txn->GetTransactionId(),
+      LOG_ERROR("11锁升级不兼容已经授权的 LOCK TABLE /n, txnID = %d, LOCkMODE = %d", txn->GetTransactionId(),
                 (int)lock_mode);
+      LOG_ERROR("22锁升级不兼容已经授权的 LOCK TABLE /n, txnID = %d, LOCkMODE = %d", (*it).txn_id_, (int)lock_mode);
       return false;
     }
   }
@@ -423,14 +426,17 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     txn->SetState(TransactionState::ABORTED);
     throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_INTENTION_LOCK_ON_ROW);
   }
-
+  if (txn->GetState() == TransactionState::GROWING) {
+    if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED && lock_mode == LockMode::SHARED) {
+      LOG_ERROR("ROW-GROWING && R-UN不给SHARD锁？");
+      txn->SetState(TransactionState::ABORTED);
+      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
+    }
+  }
   if (txn->GetState() == TransactionState::SHRINKING) {
     if (txn->GetIsolationLevel() == IsolationLevel::READ_UNCOMMITTED) {
       LOG_ERROR("ROW-SHRINKING阶段RU隔离级别下不允许获取锁");
       txn->SetState(TransactionState::ABORTED);
-      if (lock_mode == LockMode::SHARED) {
-        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_SHARED_ON_READ_UNCOMMITTED);
-      }
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::LOCK_ON_SHRINKING);
     }
     if (txn->GetIsolationLevel() == IsolationLevel::READ_COMMITTED) {
@@ -454,19 +460,36 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     // 表可以持有任意类型的锁
     std::vector<LockMode> locks = {LockMode::EXCLUSIVE, LockMode::SHARED, LockMode::INTENTION_SHARED,
                                    LockMode::SHARED_INTENTION_EXCLUSIVE, LockMode::INTENTION_EXCLUSIVE};
-    if (!IsTableLocked(txn, oid, locks)) {
-      LOG_ERROR("未先获取表锁1");
-      txn->SetState(TransactionState::ABORTED);
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+    if (IsTableLocked(txn, oid, locks) == std::nullopt) {
+      LOG_ERROR("未先获取表锁1 尝试获取表锁");
+      bool flag = false;
+      for (auto &lock : locks) {
+        flag = LockTable(txn, lock, oid);
+        if (flag) {
+          break;
+        }
+      }
+      if (!flag) {
+        txn->SetState(TransactionState::ABORTED);
+        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+      }
     }
   } else if (lock_mode == LockMode::EXCLUSIVE) {
     std::vector<LockMode> locks = {LockMode::EXCLUSIVE, LockMode::SHARED_INTENTION_EXCLUSIVE,
                                    LockMode::INTENTION_EXCLUSIVE};
-
-    if (!IsTableLocked(txn, oid, locks)) {
+    if (IsTableLocked(txn, oid, locks) == std::nullopt) {
       LOG_ERROR("未先获取表锁2");
-      txn->SetState(TransactionState::ABORTED);
-      throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+      bool flag = false;
+      for (auto &lock : locks) {
+        flag = LockTable(txn, lock, oid);
+        if (flag) {
+          break;
+        }
+      }
+      if (flag) {
+        txn->SetState(TransactionState::ABORTED);
+        throw TransactionAbortException(txn->GetTransactionId(), AbortReason::TABLE_LOCK_NOT_PRESENT);
+      }
     }
   } else {
     throw Exception("lock row中有意料之外的锁类型");
@@ -479,7 +502,8 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   std::shared_ptr<LockRequestQueue> lrq = row_lock_map_[rid];
   std::unique_lock<std::mutex> lock(lrq->latch_);
   row_lock_map_latch_.unlock();
-
+  LOG_INFO("LOCK ROW /n, txnID = %d,  oid = %d ,RID = %d,LOCkMODE = %d", txn->GetTransactionId(), oid, (int)rid.Get(),
+           (int)lock_mode);
   int flag = 0;
   for (auto it = lrq->request_queue_.begin(); it != lrq->request_queue_.end(); it++) {
     if ((*it)->txn_id_ != txn->GetTransactionId()) {
@@ -491,12 +515,14 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
     if (!CheckLockCanUpgrade((*it)->lock_mode_, lock_mode)) {
       // 锁升级不兼容
       txn->SetState(TransactionState::ABORTED);
-      LOG_ERROR("锁升级不兼容");
+      LOG_ERROR("LOCK ROW /n, txnID = %d,  oid = %d ,RID = %d,LOCkMODE = %d 锁升级不兼容", txn->GetTransactionId(), oid,
+                (int)rid.Get(), (int)lock_mode);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::INCOMPATIBLE_UPGRADE);
     }
     if (lrq->upgrading_ != INVALID_TXN_ID) {
       txn->SetState(TransactionState::ABORTED);
-      LOG_ERROR("2此时正在锁升级");
+      LOG_INFO("LOCK ROW /n, txnID = %d,  oid = %d ,RID = %d,LOCkMODE = %d 锁正在升级", txn->GetTransactionId(), oid,
+               (int)rid.Get(), (int)lock_mode);
       throw TransactionAbortException(txn->GetTransactionId(), AbortReason::UPGRADE_CONFLICT);
     }
     auto p = *it;
@@ -508,7 +534,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 
     for (auto it2 = lrq->request_queue_.begin(); it2 != lrq->request_queue_.end(); it2++) {
       if (!(*it2)->granted_) {
-        lrq->request_queue_.insert(it2, new LockRequest(txn->GetTransactionId(), lock_mode, oid));
+        lrq->request_queue_.insert(it2, new LockRequest(txn->GetTransactionId(), lock_mode, oid, rid));
         flag = 1;
         break;
       }
@@ -518,7 +544,7 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
   }
 
   if (flag == 0) {
-    lrq->request_queue_.push_back(new LockRequest(txn->GetTransactionId(), lock_mode, oid));
+    lrq->request_queue_.push_back(new LockRequest(txn->GetTransactionId(), lock_mode, oid, rid));
   }
 
   while (!GrantLock(txn, lock_mode, lrq)) {
@@ -535,6 +561,13 @@ auto LockManager::LockRow(Transaction *txn, LockMode lock_mode, const table_oid_
 }
 
 auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID &rid, bool force) -> bool {
+  if (!txn->IsRowExclusiveLocked(oid, rid) && !txn->IsRowSharedLocked(oid, rid)) {
+    txn->SetState(TransactionState::ABORTED);
+    LOG_ERROR("UNLOCK ROW /n, txnID = %d,  oid = %d ,RID = %d,解锁行锁，但是之前没有锁", txn->GetTransactionId(), oid,
+              (int)rid.Get());
+    throw TransactionAbortException(txn->GetTransactionId(), AbortReason::ATTEMPTED_UNLOCK_BUT_NO_LOCK_HELD);
+  }
+
   row_lock_map_latch_.lock();
   if (row_lock_map_.count(rid) == 0) {
     row_lock_map_[rid] = std::make_shared<LockRequestQueue>();
@@ -548,7 +581,7 @@ auto LockManager::UnlockRow(Transaction *txn, const table_oid_t &oid, const RID 
       continue;
     }
     if (!(*it)->granted_) {
-      LOG_ERROR("解锁时候找到了对应事务，但是没有被授予锁");
+      LOG_ERROR("UNLOCKROW解锁时候找到了对应事务，但是没有被授予锁");
       return false;
     }
     if (!force) {
@@ -591,12 +624,16 @@ void LockManager::UnlockAll() {
     for (auto pp : p.second->request_queue_) {
       delete pp;
     }
+    p.second->request_queue_.clear();
   }
+  row_lock_map_.clear();
   for (auto &p : table_lock_map_) {
     for (auto pp : p.second->request_queue_) {
       delete pp;
     }
+    p.second->request_queue_.clear();
   }
+  table_lock_map_.clear();
 }
 
 void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {}
