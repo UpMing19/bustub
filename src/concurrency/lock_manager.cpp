@@ -636,14 +636,61 @@ void LockManager::UnlockAll() {
   table_lock_map_.clear();
 }
 
-void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {}
+void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
+  waits_for_latch_.lock();
+  if (txn_manager_->GetTransaction(t1)->GetState() != TransactionState::ABORTED) {
+    if (txn_manager_->GetTransaction(t2)->GetState() != TransactionState::ABORTED) {
+      waits_for_[t1].push_back(t2);
+    }
+  }
+  std::sort(waits_for_[t1].begin(), waits_for_[t1].end());
+  waits_for_latch_.unlock();
+}
 
-void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {}
+void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) {
+  waits_for_latch_.lock();
+  for (auto it = waits_for_[t1].begin(); it != waits_for_[t1].end(); it++) {
+    if ((*it) == t2) {
+      waits_for_[t1].erase(it);
+      break;
+    }
+  }
+  waits_for_latch_.unlock();
+}
 
-auto LockManager::HasCycle(txn_id_t *txn_id) -> bool { return false; }
+auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
+  std::vector<std::pair<txn_id_t, txn_id_t>> edge = GetEdgeList();
+
+  if (edge.empty()) {
+    return false;
+  }
+
+  return dfs(edge[0].first, txn_id);
+}
+
+void dfs(txn_id_t now, txn_id_t *txn_id) {
+  if (vis[now]) {
+    // 有环
+    txn_id = return true;
+  }
+  vis[now] = true;
+  for (auto it = waits_for_[t1].begin(); it != waits_for_[t1].end(); it++) {
+    if (vis[*it] == false) {
+      return
+    }
+  }
+}
 
 auto LockManager::GetEdgeList() -> std::vector<std::pair<txn_id_t, txn_id_t>> {
+  waits_for_latch_.lock();
   std::vector<std::pair<txn_id_t, txn_id_t>> edges(0);
+  for (auto pa : waits_for_) {
+    for (auto p : pa.second) {
+      edges.push_back({pa.first, p});
+    }
+  }
+  std::sort(edges.begin(), edges.end());
+  waits_for_latch_.unlock();
   return edges;
 }
 
