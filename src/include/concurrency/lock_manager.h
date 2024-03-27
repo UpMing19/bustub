@@ -23,12 +23,12 @@
 #include <utility>
 #include <vector>
 
+#include <map>
 #include <stack>
 #include "common/config.h"
 #include "common/macros.h"
 #include "common/rid.h"
 #include "concurrency/transaction.h"
-#include <map>
 namespace bustub {
 
 class TransactionManager;
@@ -359,6 +359,7 @@ class LockManager {
   std::mutex waits_for_latch_;
 
   std::unordered_map<txn_id_t, bool> vis_;
+  std::unordered_map<txn_id_t, bool> vi_;
   std::stack<txn_id_t> st_;
 };
 

@@ -649,25 +649,26 @@ void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
 
 void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) { waits_for_[t1].erase(t2); }
 auto LockManager::Dfs(txn_id_t txn_id) -> bool {
-  if (vis_[txn_id]) {
-    return true;
-  }
   st_.push(txn_id);
   vis_[txn_id] = true;
+  vi_[txn_id] = true;
   for (auto s : waits_for_[txn_id]) {
     if (vis_[s]) {
       return true;
     }
-    return Dfs(s);
+    if (!vi_[s]) {
+      if (Dfs(s)) {
+        return true;
+      }
+    }
   }
   vis_[txn_id] = false;
   st_.pop();
   return false;
 }
 auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
-
   for (const auto &p : waits_for_) {
-    if (!vis_[p.first] && Dfs(p.first)) {
+    if (!vi_[p.first] && Dfs(p.first)) {
       *txn_id = st_.top();
       LOG_INFO("有环");
       return true;
@@ -743,16 +744,18 @@ void LockManager::RemoveAllAboutAbortTxn(txn_id_t tid) {
 void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
-    {  // TODO(students): detect deadlock
+    {
       LOG_INFO("检测1");
       vis_.clear();
+      vi_.clear();
       waits_for_.clear();
       while (!st_.empty()) {
         st_.pop();
       }
+      waits_for_latch_.lock();
       table_lock_map_latch_.lock();
       row_lock_map_latch_.lock();
-      std::lock_guard lock(waits_for_latch_);
+
 
       for (const auto &tmp : table_lock_map_) {
         std::lock_guard lock2(tmp.second->latch_);
@@ -795,14 +798,24 @@ void LockManager::RunCycleDetection() {
 
       txn_id_t tid = INVALID_TXN_ID;
       while (HasCycle(&tid)) {
+
+        vis_.clear();
+        vi_.clear();
+        waits_for_.clear();
+        while (!st_.empty()) {
+          st_.pop();
+        }
+
         Transaction *txn = txn_manager_->GetTransaction(tid);
         txn->SetState(TransactionState::ABORTED);
         RemoveAllAboutAbortTxn(tid);
         LOG_INFO("检测2");
       }
 
+      waits_for_latch_.unlock();
       table_lock_map_latch_.unlock();
       row_lock_map_latch_.unlock();
+
       LOG_INFO("检测3");
     }
   }
