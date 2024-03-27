@@ -14,6 +14,7 @@
 
 #include "catalog/catalog.h"
 #include "common/config.h"
+#include "common/logger.h"
 #include "execution/executors/insert_executor.h"
 #include "storage/table/tuple.h"
 #include "type/value.h"
@@ -31,6 +32,15 @@ void InsertExecutor::Init() {
   // throw NotImplementedException("InsertExecutor is not implemented");
   child_executor_->Init();
   end_flag_ = false;
+
+  try {
+    bool success = exec_ctx_->GetLockManager()->LockTable(
+        exec_ctx_->GetTransaction(), bustub::LockManager::LockMode::INTENTION_EXCLUSIVE, plan_->TableOid());
+    if (!success) {
+      LOG_ERROR("锁表失败 insert 算子");
+    }
+  } catch (TransactionAbortException &e) {
+  }
 }
 
 auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
@@ -55,6 +65,10 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
 
     //    debug(*rid);
     //    debug(r.value());
+
+    auto twr = TableWriteRecord{table_info->oid_, *rid, table_info->table_.get()};
+    twr.wtype_ = WType::INSERT;
+    exec_ctx_->GetTransaction()->GetWriteSet()->push_back(twr);
 
     *rid = r.value();
     LOG_DEBUG("insert tuple: %s", tuple->ToString(&child_executor_->GetOutputSchema()).c_str());

@@ -15,6 +15,7 @@
 
 #include "catalog/catalog.h"
 #include "common/logger.h"
+#include "concurrency/transaction.h"
 #include "execution/executors/delete_executor.h"
 #include "type/type_id.h"
 
@@ -48,6 +49,10 @@ auto DeleteExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     TupleMeta tuple_meta = res_tuple.first;
     tuple_meta.is_deleted_ = true;
     table_info->table_->UpdateTupleMeta(tuple_meta, *rid);
+
+    auto twr = TableWriteRecord{table_info->oid_, *rid, table_info->table_.get()};
+    twr.wtype_ = WType::DELETE;
+    exec_ctx_->GetTransaction()->GetWriteSet()->push_back(twr);
 
     // 2.更新索引
     std::vector<IndexInfo *> v = cata_log->GetTableIndexes(table_info->name_);
