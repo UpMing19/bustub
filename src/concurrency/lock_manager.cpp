@@ -648,25 +648,27 @@ void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
 }
 
 void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) { waits_for_[t1].erase(t2); }
-auto LockManager::Dfs(txn_id_t txn_id, txn_id_t *young) -> bool {
+auto LockManager::Dfs(txn_id_t txn_id) -> bool {
   if (vis_[txn_id]) {
     return true;
   }
+  st_.push(txn_id);
   vis_[txn_id] = true;
   for (auto s : waits_for_[txn_id]) {
     if (vis_[s]) {
-      *young = s;
       return true;
     }
-    return Dfs(s, young);
+    return Dfs(s);
   }
   vis_[txn_id] = false;
+  st_.pop();
   return false;
 }
 auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
+
   for (const auto &p : waits_for_) {
-    if (!vis_[p.first] && Dfs(p.first, txn_id)) {
-      // *txn_id = p.first;
+    if (!vis_[p.first] && Dfs(p.first)) {
+      *txn_id = st_.top();
       LOG_INFO("有环");
       return true;
     }
@@ -727,7 +729,7 @@ void LockManager::RemoveAllAboutAbortTxn(txn_id_t tid) {
   // 删掉别人在等他的
 
   for (auto iter = waits_for_.begin(); iter != waits_for_.end();) {
-    if ((*iter).second.count(tid)) {
+    if ((*iter).second.count(tid) != 0U) {
       RemoveEdge((*iter).first, tid);
     }
     if ((*iter).second.empty()) {
@@ -744,6 +746,10 @@ void LockManager::RunCycleDetection() {
     {  // TODO(students): detect deadlock
       LOG_INFO("检测1");
       vis_.clear();
+      waits_for_.clear();
+      while (!st_.empty()) {
+        st_.pop();
+      }
       table_lock_map_latch_.lock();
       row_lock_map_latch_.lock();
       std::lock_guard lock(waits_for_latch_);
