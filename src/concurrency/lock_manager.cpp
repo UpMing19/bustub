@@ -756,7 +756,6 @@ void LockManager::RunCycleDetection() {
       table_lock_map_latch_.lock();
       row_lock_map_latch_.lock();
 
-
       for (const auto &tmp : table_lock_map_) {
         std::lock_guard lock2(tmp.second->latch_);
         std::vector<txn_id_t> gr;
@@ -798,7 +797,6 @@ void LockManager::RunCycleDetection() {
 
       txn_id_t tid = INVALID_TXN_ID;
       while (HasCycle(&tid)) {
-
         vis_.clear();
         vi_.clear();
         waits_for_.clear();
