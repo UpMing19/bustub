@@ -637,36 +637,41 @@ void LockManager::UnlockAll() {
 }
 
 void LockManager::AddEdge(txn_id_t t1, txn_id_t t2) {
-  if (txn_manager_->GetTransaction(t1)->GetState() != TransactionState::ABORTED) {
-    if (txn_manager_->GetTransaction(t2)->GetState() != TransactionState::ABORTED) {
-      waits_for_[t1].insert(t2);
-    }
-  }
-  std::sort(waits_for_[t1].begin(), waits_for_[t1].end());
+  //  if (txn_manager_->GetTransaction(t1)->GetState() != TransactionState::ABORTED) {
+  //    if (txn_manager_->GetTransaction(t2)->GetState() != TransactionState::ABORTED) {
+  //
+  //    }
+  //  }
+  // LOG_INFO("加边 %d -> %d",(int)t1,(int)t2);
+  waits_for_[t1].insert(t2);
+  // std::sort(waits_for_[t1].begin(), waits_for_[t1].end());
 }
 
 void LockManager::RemoveEdge(txn_id_t t1, txn_id_t t2) { waits_for_[t1].erase(t2); }
-auto LockManager::Dfs(txn_id_t txn_id) -> bool {
+auto LockManager::Dfs(txn_id_t txn_id, txn_id_t *young) -> bool {
   if (vis_[txn_id]) {
     return true;
   }
   vis_[txn_id] = true;
   for (auto s : waits_for_[txn_id]) {
     if (vis_[s]) {
-      continue;
+      *young = s;
+      return true;
     }
-    return Dfs(s);
+    return Dfs(s, young);
   }
   vis_[txn_id] = false;
   return false;
 }
 auto LockManager::HasCycle(txn_id_t *txn_id) -> bool {
   for (const auto &p : waits_for_) {
-    if (!vis_[p.first] && Dfs(p.first)) {
-      *txn_id = p.first;
+    if (!vis_[p.first] && Dfs(p.first, txn_id)) {
+      // *txn_id = p.first;
+      LOG_INFO("有环");
       return true;
     }
   }
+  LOG_INFO("无环");
   return false;
 }
 
@@ -677,14 +682,14 @@ auto LockManager::GetEdgeList() -> std::vector<std::pair<txn_id_t, txn_id_t>> {
       edges.emplace_back(pa.first, p);
     }
   }
-  std::sort(edges.begin(), edges.end());
+  // std::sort(edges.begin(), edges.end());
 
   return edges;
 }
 
 void LockManager::RemoveAllAboutAbortTxn(txn_id_t tid) {
   for (const auto &tmp : table_lock_map_) {
-    std::lock_guard lock2(tmp.second->latch_);
+    // std::lock_guard lock2(tmp.second->latch_);
     for (auto it = tmp.second->request_queue_.begin(); it != tmp.second->request_queue_.end();) {
       auto p = (*it);
       if ((*it)->txn_id_ == tid) {
@@ -701,7 +706,7 @@ void LockManager::RemoveAllAboutAbortTxn(txn_id_t tid) {
   }
 
   for (const auto &tmp : row_lock_map_) {
-    std::lock_guard lock2(tmp.second->latch_);
+    // std::lock_guard lock2(tmp.second->latch_);
     for (auto it = tmp.second->request_queue_.begin(); it != tmp.second->request_queue_.end();) {
       auto p = (*it);
       if ((*it)->txn_id_ == tid) {
@@ -717,12 +722,19 @@ void LockManager::RemoveAllAboutAbortTxn(txn_id_t tid) {
     }
   }
 
-  waits_for_.erase(tid);  //删掉他在等别人的
+  waits_for_.erase(tid);  // 删掉他在等别人的
 
   // 删掉别人在等他的
 
-  for (auto [f, s] : waits_for_) {
-    RemoveEdge(f, tid);
+  for (auto iter = waits_for_.begin(); iter != waits_for_.end();) {
+    if ((*iter).second.count(tid)) {
+      RemoveEdge((*iter).first, tid);
+    }
+    if ((*iter).second.empty()) {
+      waits_for_.erase(iter++);
+    } else {
+      iter++;
+    }
   }
 }
 
@@ -730,7 +742,7 @@ void LockManager::RunCycleDetection() {
   while (enable_cycle_detection_) {
     std::this_thread::sleep_for(cycle_detection_interval);
     {  // TODO(students): detect deadlock
-
+      LOG_INFO("检测1");
       vis_.clear();
       table_lock_map_latch_.lock();
       row_lock_map_latch_.lock();
@@ -780,10 +792,12 @@ void LockManager::RunCycleDetection() {
         Transaction *txn = txn_manager_->GetTransaction(tid);
         txn->SetState(TransactionState::ABORTED);
         RemoveAllAboutAbortTxn(tid);
+        LOG_INFO("检测2");
       }
 
       table_lock_map_latch_.unlock();
       row_lock_map_latch_.unlock();
+      LOG_INFO("检测3");
     }
   }
 }

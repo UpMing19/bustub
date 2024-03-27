@@ -12,7 +12,7 @@
 #include "gtest/gtest.h"
 
 namespace bustub {
-TEST(LockManagerDeadlockDetectionTest, DISABLED_EdgeTest) {
+TEST(LockManagerDeadlockDetectionTest, EdgeTest) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
   lock_mgr.txn_manager_ = &txn_mgr;
@@ -36,10 +36,14 @@ TEST(LockManagerDeadlockDetectionTest, DISABLED_EdgeTest) {
   // Create edges by pairing adjacent txn_ids
   std::vector<std::pair<txn_id_t, txn_id_t>> edges;
   for (int i = 0; i < num_nodes; i += 2) {
+    std::cout << "#1#" << std::endl;
     EXPECT_EQ(i / 2, lock_mgr.GetEdgeList().size());
+    std::cout << "#2#" << std::endl;
     auto t1 = txn_ids[i];
     auto t2 = txn_ids[i + 1];
     lock_mgr.AddEdge(t1, t2);
+    std::cout << "#3#" << std::endl;
+
     edges.emplace_back(t1, t2);
     EXPECT_EQ((i / 2) + 1, lock_mgr.GetEdgeList().size());
   }
@@ -56,7 +60,7 @@ TEST(LockManagerDeadlockDetectionTest, DISABLED_EdgeTest) {
   }
 }
 
-TEST(LockManagerDeadlockDetectionTest, DISABLED_BasicDeadlockDetectionTest) {
+TEST(LockManagerDeadlockDetectionTest, BasicDeadlockDetectionTest) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
   lock_mgr.txn_manager_ = &txn_mgr;
@@ -78,7 +82,7 @@ TEST(LockManagerDeadlockDetectionTest, DISABLED_BasicDeadlockDetectionTest) {
     EXPECT_EQ(true, res);
     EXPECT_EQ(TransactionState::GROWING, txn1->GetState());
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
+    std::cout << "#block1" << std::endl;
     // This will block
     res = lock_mgr.LockRow(txn0, LockManager::LockMode::EXCLUSIVE, toid, rid1);
     EXPECT_EQ(true, res);
@@ -99,7 +103,7 @@ TEST(LockManagerDeadlockDetectionTest, DISABLED_BasicDeadlockDetectionTest) {
 
     res = lock_mgr.LockRow(txn1, LockManager::LockMode::EXCLUSIVE, toid, rid1);
     EXPECT_EQ(TransactionState::GROWING, txn1->GetState());
-
+    std::cout << "#block2" << std::endl;
     // This will block
     res = lock_mgr.LockRow(txn1, LockManager::LockMode::EXCLUSIVE, toid, rid0);
     EXPECT_EQ(res, false);

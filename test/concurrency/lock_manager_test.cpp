@@ -323,7 +323,6 @@ void AbortTest1() {
 
 TEST(LockManagerTest, RowAbortTest1) { AbortTest1(); }  // NOLINT
 
-
 TEST(LockManagerTest, DISABLED_CompatibilityTest1) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
@@ -373,7 +372,7 @@ TEST(LockManagerTest, DISABLED_CompatibilityTest1) {
   delete txn2;
 }
 
-TEST(LockManagerTest,  DISABLED_CompatibilityTest2) {
+TEST(LockManagerTest, DISABLED_CompatibilityTest2) {
   LockManager lock_mgr{};
   TransactionManager txn_mgr{&lock_mgr};
   table_oid_t oid = 0;
@@ -476,8 +475,5 @@ TEST(LockManagerTest, DISABLED_CompatibilityTest3) {
   delete txn1;
   delete txn2;
 }
-
-
-
 
 }  // namespace bustub
